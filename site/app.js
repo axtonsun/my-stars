@@ -144,7 +144,7 @@
   const drawerOf = (id) => { const c = D.cats[id], name = cname(c); return { ...c, name, label: T().drawer(name, c.count), closeLabel: T().close(name) }; };
   function drawCabinet() {
     const cols = phone.matches ? 2 : 4;
-    const { svg, L } = Draw.cabinet(D.order.map(drawerOf), cols);
+    const { svg, L } = Draw.cabinet(D.order.map(drawerOf), cols, T().lift);
     const el = $('#cabinet');
     el.setAttribute('viewBox', `0 0 ${L.vw} ${L.vh}`);
     el.innerHTML = svg + '<g id="overlay"></g>';
@@ -267,6 +267,158 @@
     slide(d.id, to, easeOut);
     if (to && !wasOpen) go({ c: d.id, t: '', s: '', q: '', r: '' });
     else if (!to && wasOpen) go({ c: '', t: '', s: '', q: '', r: '' });
+  }
+
+  /* ---------- lifting the cabinet by a foot ---------- */
+  // Grab a foot and pull it in towards the middle (the left one to the right, the right one to the left): that side of the
+  // cabinet comes up, tipping over the other foot, and once it is well up the drawers knock over to the low side of their
+  // slots. Let go and it falls, bounces once, and every drawer rattles in its slot, the ones furthest from the foot it
+  // tipped over the most. The fall and the rattling are worked out when it is let go and played as Web Animations of CSS
+  // transforms, which the browser runs without drawing the cabinet again (see Draw.tipped). In cabinet units and
+  // milliseconds; none of it goes in the URL.
+  // TIP: which foot is up (side), how high (h), and whether the drawers have knocked over (slid). HOLD: the pointer on it.
+  const TIP = { side: 'l', h: 0, slid: false };
+  let HOLD = null;
+  // HEAVY: how far a foot is pulled to lift it most of the way (× its highest); BOUNCE: the share of its speed it keeps
+  // off the floor; RATTLE: how long the drawers rattle after each time it hits the floor
+  const HEAVY = 1.8, BOUNCE = 0.3, RATTLE = 1300;
+  // each drawer rattles its own way: how far it slides (k), how fast it hops, shifts and turns, which way, and how late
+  const QUIRK = new Map();
+  function quirk(id) {
+    if (!QUIRK.has(id)) {
+      const r = Draw.rng(hash('rattle:' + id));
+      QUIRK.set(id, { k: 0.6 + 0.4 * r(), hop: 80 + 40 * r(), shift: 100 + 40 * r(), turn: 120 + 50 * r(), sx: r() < 0.5 ? -1 : 1, sr: r() < 0.5 ? -1 : 1, lag: 25 * r() });
+    }
+    return QUIRK.get(id);
+  }
+  // what tips: the cabinet, the floor under it and the raised foot's shadow
+  const tipping = () => { const cab = $('#cabinet'); return { cab, floor: cab.querySelector('.floor'), shadow: cab.querySelector('.fs-' + TIP.side) }; };
+  // every drawer, closed or pulled out, with its place in the cabinet
+  const drawerEls = () => [...$('#cabinet').querySelectorAll(':scope > .drawer, #overlay [data-out]')].map((g) => [g, D.order.indexOf(g.dataset.cat || g.dataset.out)]);
+  // stop what a drawer is doing where it is: returns its transform at that moment, and how far it is off to the side
+  function halt(g) {
+    const now = getComputedStyle(g).transform;
+    g.getAnimations().forEach((a) => a.cancel());
+    return [now, new DOMMatrix(now === 'none' ? undefined : now).e];
+  }
+  // the cabinet held still `h` up, or standing (h = 0)
+  function hold(h) {
+    const els = tipping(), st = Draw.tipped(CAB.L, TIP.side, h), at = Draw.pivots(CAB.L, TIP.side);
+    for (const k in els) {
+      els[k].getAnimations().forEach((a) => a.cancel());
+      els[k].style.transformOrigin = at[k];
+      for (const p in st[k]) els[k].style[p] = h ? st[k][p] : '';
+    }
+  }
+  // the drawers knock over to the low side of their slots (dir 1 right, -1 left), or slide back to the middle (0)
+  function knock(dir) {
+    const L = CAB.L;
+    for (const [g, i] of drawerEls()) {
+      const [from, x0] = halt(g), x1 = (2 * L.dh / 160) * quirk(D.order[i]).k * dir, to = (x) => Draw.shaken(x, 0, 0);
+      g.style.transformOrigin = Draw.middle(L, i);
+      g.animate([{ transform: from, easing: 'ease-in' }, { transform: to(x1), offset: 0.6, easing: 'ease-out' }, { transform: to(x1 - 0.25 * (x1 - x0)), offset: 0.8, easing: 'ease-in' }, { transform: to(x1) }], { duration: 240, fill: 'forwards' });
+    }
+  }
+  function grabFoot(e) {
+    const g = e.target.closest('.leg');
+    if (!g || !e.isPrimary || e.button || DRAG || HOLD) return;
+    const cab = $('#cabinet'), falling = cab.getAnimations().length > 0, side = g.dataset.side;
+    // the other foot can't be grabbed while this one is up; this one can be caught on its way down
+    if (falling && side !== TIP.side) return;
+    e.preventDefault();
+    let h = 0;
+    if (falling) { const m = new DOMMatrix(getComputedStyle(cab).transform); h = Math.abs(m.b / m.a) * (CAB.L.W - 20); }
+    const top = Draw.rise(CAB.L);
+    h = Math.min(h, top * 0.99);
+    TIP.side = side;
+    TIP.h = h;
+    document.body.classList.add('lifting');
+    hold(h);
+    HOLD = { pid: e.pointerId, x0: e.clientX, d0: -top * HEAVY * Math.log(1 - h / top), moved: false };
+  }
+  function pullFoot(e) {
+    const d = HOLD;
+    if (!d || e.pointerId !== d.pid) return;
+    if (!d.moved) {
+      if (Math.abs(e.clientX - d.x0) < 3) return;
+      d.moved = true;
+      try { $('#cabinet').setPointerCapture(e.pointerId); } catch {}
+      document.body.classList.add('dragging');
+      d.per = 1 / $('#cabinet').getScreenCTM().a;
+    }
+    // the further it is pulled in, the harder it gets: it never goes past rise()
+    const top = Draw.rise(CAB.L), pulled = Math.max(0, d.d0 + (e.clientX - d.x0) * (TIP.side === 'l' ? 1 : -1) * d.per);
+    TIP.h = top * (1 - Math.exp(-pulled / (top * HEAVY)));
+    hold(TIP.h);
+    if (still.matches) return;
+    if (!TIP.slid && TIP.h > top * 0.3) { TIP.slid = true; knock(TIP.side === 'l' ? 1 : -1); }
+    else if (TIP.slid && TIP.h < top * 0.1) { TIP.slid = false; knock(0); }
+  }
+  function dropFoot(e) {
+    const d = HOLD;
+    if (!d || e.pointerId !== d.pid) return;
+    HOLD = null;
+    if (d.moved) {
+      document.body.classList.remove('dragging');
+      SWALLOW = true;
+      setTimeout(() => { SWALLOW = false; });
+    }
+    drop();
+  }
+  // let go: the cabinet falls under gravity and bounces off the floor, worked out in steps of 2 ms
+  function drop() {
+    const L = CAB.L, z = L.dh / 160, G = 0.0018 * z, full = Math.sqrt(2 * G * Draw.rise(L)), h0 = TIP.h;
+    TIP.h = 0;
+    hold(0);
+    if (!h0 || still.matches) {
+      if (TIP.slid) { TIP.slid = false; knock(0); }
+      document.body.classList.remove('lifting');
+      return;
+    }
+    // where it is every 16 ms and each time it lands; when it lands and how hard (1 = dropped from as high as it goes)
+    const pts = [[0, h0]], hits = [];
+    for (let t = 0, h = h0, v = 0; h > 0 || v;) {
+      t += 2;
+      v -= G * 2;
+      h += v * 2;
+      if (h > 0) { if (t % 16 === 0) pts.push([t, h]); continue; }
+      hits.push([t, Math.min(1.3, -v / full)]);
+      pts.push([t, 0]);
+      h = 0;
+      v = -v * BOUNCE;
+      if (v * v < 2 * G * 0.6) v = 0; // a bounce under 0.6 units: it has come to rest
+    }
+    const end = pts[pts.length - 1][0], els = tipping();
+    for (const k in els) {
+      const a = els[k].animate(pts.map(([t, h]) => ({ offset: t / end, ...Draw.tipped(L, TIP.side, h)[k] })), { duration: end });
+      if (k === 'cab') a.onfinish = () => { if (!HOLD) document.body.classList.remove('lifting'); };
+    }
+
+    // The drawers rattle: each hit sends them hopping in their slots, shifting and turning, dying away over RATTLE ms.
+    // One that had knocked over to the low side goes back to the middle as it does.
+    const T1 = hits[0][0], last = hits[hits.length - 1][0] + RATTLE, pivot = TIP.side === 'l' ? L.X + L.W - 10 : L.X + 10;
+    const times = [...new Set([...Array.from({ length: Math.ceil(last / 16) }, (_, k) => k * 16), ...hits.map(([t]) => t), last])].sort((a, b) => a - b);
+    for (const [g, i] of drawerEls()) {
+      const q = quirk(D.order[i]), [from, x0] = halt(g), mid = L.cells[i][0] + L.dw / 2;
+      // the further from the foot it tipped over, the faster a drawer was falling when the cabinet landed
+      const lever = 0.5 + 0.5 * Math.abs(mid - pivot) / (L.W - 20);
+      const at = (t) => {
+        const a1 = t - T1 - q.lag;
+        let x = a1 > 0 ? x0 * Math.exp(-a1 / 140) * Math.cos((2 * Math.PI * a1) / q.shift) : x0, y = 0, r = 0;
+        for (const [th, hs] of hits) {
+          const a = t - th - q.lag, s = hs * lever;
+          if (a <= 0) continue;
+          const e1 = Math.exp(-a / 200), e2 = Math.exp(-a / 300);
+          y -= 8 * z * s * e1 * Math.abs(Math.sin((Math.PI * a) / q.hop));
+          x += 3 * z * s * e2 * q.sx * Math.sin((2 * Math.PI * a) / q.shift);
+          r += 2.2 * s * e2 * q.sr * Math.sin((2 * Math.PI * a) / q.turn);
+        }
+        return Draw.shaken(x, y, r);
+      };
+      g.style.transformOrigin = Draw.middle(L, i);
+      g.animate(times.map((t) => ({ offset: t / last, transform: t ? at(t) : from })), { duration: last });
+    }
+    TIP.slid = false;
   }
 
   /* ---------- cards ---------- */
@@ -420,15 +572,19 @@
       go({ c: isOpen ? '' : id, t: '', s: '', q: '', r: '' });
     };
     cab.addEventListener('click', (e) => { if (!SWALLOW) activate(e.target); });
-    // or drag a drawer out (or back in) by its handle
+    // or drag a drawer out (or back in) by its handle, or lift the cabinet by a foot
     cab.addEventListener('pointerdown', grab);
+    cab.addEventListener('pointerdown', grabFoot);
     addEventListener('pointermove', drag);
+    addEventListener('pointermove', pullFoot);
     addEventListener('pointerup', release);
+    addEventListener('pointerup', dropFoot);
     addEventListener('pointercancel', release);
+    addEventListener('pointercancel', dropFoot);
     // (a touch's implicit capture by the handle moving to the cabinet doesn't count)
-    cab.addEventListener('lostpointercapture', (e) => { if (e.target === cab) release(e); });
-    // on a touch screen, dragging a handle moves the drawer, not the page
-    cab.addEventListener('touchmove', (e) => { if (DRAG) e.preventDefault(); }, { passive: false });
+    cab.addEventListener('lostpointercapture', (e) => { if (e.target === cab) { release(e); dropFoot(e); } });
+    // on a touch screen, dragging a handle or a foot moves it, not the page
+    cab.addEventListener('touchmove', (e) => { if (DRAG || HOLD) e.preventDefault(); }, { passive: false });
     cab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e.target); } });
     // a plain mouse wheel over the tag tabs scrolls them sideways (trackpads scroll sideways already)
     $('#panel').addEventListener('wheel', (e) => {

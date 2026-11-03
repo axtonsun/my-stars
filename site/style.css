@@ -50,7 +50,7 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 
 /* ---------- layout ---------- */
 .layout { max-width: 1440px; margin: 0 auto; padding: 0 56px; display: grid; grid-template-columns: minmax(0, 812fr) minmax(340px, 540fr); gap: 40px; align-items: start; }
-#cabinet { display: block; width: 100%; height: auto; }
+#cabinet { display: block; width: 100%; height: auto; overflow: visible; }
 .drawer { cursor: pointer; outline: none; }
 .drawer .hov { fill: #fff; opacity: 0; transition: opacity .15s; }
 .drawer:hover .hov { opacity: .14; }
@@ -61,6 +61,10 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 /* the handle: grab it to drag the drawer out or back in (app.js) */
 .grip { fill: #fff; opacity: 0; cursor: grab; touch-action: none; }
 body.dragging, body.dragging * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+/* the feet: pull one in towards the middle to lift that side of the cabinet (app.js). While it is up, the whole
+   picture gets a layer of its own, so tipping it doesn't draw it again. */
+.leg { fill: #fff; opacity: 0; cursor: grab; touch-action: none; }
+body.lifting #cabinet { will-change: transform; }
 /* the guide tabs in a pulled drawer: each picks its tag, like the tag tabs in the panel */
 .gtab { cursor: pointer; outline: none; }
 .gtab .hit { fill: #fff; opacity: 0; }
@@ -242,7 +246,7 @@ html:lang(en) .ld-msg p, .failed .ld-msg p { letter-spacing: .04em; }
   .sub { font-size: 13.5px; margin-top: 6px; }
   .search { width: auto; }
   .search kbd { display: none; }
-  .layout { display: block; padding: 0 16px; }
+  .layout { display: block; padding: 0 16px; overflow-x: clip; } /* a tipped cabinet doesn't widen the page */
   body:not([data-view="home"]) .cab-col { display: none; }
   .panel { height: auto; overflow: visible; padding: 0; }
   body[data-view="home"] .panel { margin-top: 26px; }

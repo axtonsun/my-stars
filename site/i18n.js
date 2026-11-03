@@ -42,6 +42,7 @@ window.I18N = (() => {
     guideCard: (tag, n) => `分隔卡「${tag}」，${n} 张`,
     flag: (n) => `${n} 张`,
     note: (n) => `待归档 ${n} 张`,
+    lift: '按住柜脚往里拖，把柜子抬起来',
 
     back: '柜子',
     sorts: { stars: 'Star', starred: '收藏时间', pushed: '最近更新' },
@@ -120,6 +121,7 @@ window.I18N = (() => {
     guideCard: (tag, n) => `“${tag}” guide card, ${pl(n, 'card')}`,
     flag: (n) => String(n),
     note: (n) => `${n} unfiled`,
+    lift: 'Hold a foot and drag it inwards to lift the cabinet',
 
     back: 'Cabinet',
     sorts: { stars: 'Stars', starred: 'Starred', pushed: 'Updated' },

@@ -120,29 +120,72 @@ window.Draw = (() => {
     return s;
   }
 
+  // where the feet stand: the plinth's top `by`, the floor `fb`, each foot `fw` wide, its left edge at xs.l or xs.r
+  function feet(L) {
+    const { W, X } = L, by = L.Y + L.H, fw = W < 400 ? 22 : 30;
+    return { by, fb: by + L.foot, fw, xs: { l: X + 6, r: X + W - 6 - fw } };
+  }
+
+  // the shadows on the floor: a faint one under the whole cabinet and one under each foot (tipped() moves them)
+  function floor(L) {
+    const { fb, fw, xs } = feet(L);
+    let s = `<ellipse cx="${L.X + L.W / 2}" cy="${fb}" rx="${L.W / 2 + 6}" ry="3" fill="#3b2a1e" opacity=".1"/>`;
+    for (const side of ['l', 'r']) s += `<ellipse class="fs-${side}" cx="${xs[side] + fw / 2}" cy="${fb}" rx="${fw / 2 + 5}" ry="2.6" fill="#3b2a1e" opacity=".22"/>`;
+    return `<g class="floor">${s}</g>`;
+  }
+
   // the cabinet without its drawers: top, body, plinth and feet
   function carcass(L) {
     const { W, H, X, Y } = L;
     let s = fillRect(X - 14, Y - 12, W + 28, 22, WOOD_DEEP, { op: 0.9 }) + box(X - 14, Y - 12, W + 28, 22, { w: 1.3 });
     s += `<rect x="${X}" y="${Y + 10}" width="${W}" height="${H - 10}" fill="#b98c5e"/>` + fillRect(X, Y + 10, W, H - 10, TEA, { op: 0.7 }) + box(X, Y + 10, W, H - 10, { w: 1.4 });
     for (let i = 0; i < H / 18; i++) { const yy = Y + 20 + R() * (H - 30); s += line(X + 6, yy, X + W - 6, yy + j(3), { w: 0.5, op: 0.25, color: '#3b2413' }); }
-    // the plinth and two tapered feet, with their shadows on the floor
-    const by = Y + H, ph = 10, fb = by + L.foot, fw = W < 400 ? 22 : 30;
-    s += `<ellipse cx="${X + W / 2}" cy="${fb}" rx="${W / 2 + 6}" ry="3" fill="#3b2a1e" opacity=".1"/>`;
-    for (const x0 of [X + 6, X + W - 6 - fw]) {
+    // the plinth and two tapered feet
+    const { by, fb, fw, xs } = feet(L), ph = 10;
+    for (const x0 of [xs.l, xs.r]) {
       const leg = [[x0, by + ph], [x0 + fw, by + ph], [x0 + fw - 4, fb], [x0 + 4, fb]];
-      s += `<ellipse cx="${x0 + fw / 2}" cy="${fb}" rx="${fw / 2 + 5}" ry="2.6" fill="#3b2a1e" opacity=".22"/><path d="${shape(leg)}" fill="#9a6d43"/>` + pencil(shape(leg), TEA, { op: 0.8 }) + outline(leg, { w: 1.2 });
+      s += `<path d="${shape(leg)}" fill="#9a6d43"/>` + pencil(shape(leg), TEA, { op: 0.8 }) + outline(leg, { w: 1.2 });
     }
     s += `<rect x="${X - 6}" y="${by}" width="${W + 12}" height="${ph}" fill="#9a6d43"/>` + fillRect(X - 6, by, W + 12, ph, WOOD_DEEP, { op: 0.9 }) + box(X - 6, by, W + 12, ph, { w: 1.3 });
     return s;
   }
 
+  // an invisible patch over each foot, a little bigger than it, to grab it by and lift that side of the cabinet (app.js)
+  function legGrips(L, label) {
+    const { by, fb, fw, xs } = feet(L);
+    return ['l', 'r'].map((side) => `<rect class="leg" data-side="${side}" x="${xs[side] - 8}" y="${by}" width="${fw + 16}" height="${fb - by + 6}"><title>${esc(label)}</title></rect>`).join('');
+  }
+
+  // How high a foot can be lifted: enough to tip the cabinet about 3 degrees, and no more than 36 on the big cabinet.
+  const rise = (L) => Math.min(36, (L.W - 20) * Math.tan(Math.PI / 60));
+  // The cabinet with its `side` foot ('l' or 'r') lifted `h` off the floor, as CSS for three things: the whole <svg>
+  // (`cab`) turns about the outer edge of the other foot, the .floor group turns back the same way so the shadows stay on
+  // the floor, and the raised foot's shadow (`shadow`) fades and spreads. CSS transforms, not SVG ones, so the browser can
+  // turn the picture it already has instead of drawing it all again every frame. pivots() gives what each one turns about.
+  function tipped(L, side, h) {
+    const up = Math.min(1, h / rise(L)), a = ((side === 'l' ? 1 : -1) * Math.atan2(h, L.W - 20) * 180) / Math.PI;
+    return {
+      cab: { transform: `rotate(${a.toFixed(3)}deg)` },
+      floor: { transform: `rotate(${(-a).toFixed(3)}deg)` },
+      shadow: { transform: `scale(${(1 + 0.6 * up).toFixed(3)}, 1)`, opacity: (0.22 * (1 - 0.75 * up)).toFixed(3) },
+    };
+  }
+  function pivots(L, side) {
+    const { fb, fw, xs } = feet(L), px = side === 'l' ? L.X + L.W - 10 : L.X + 10;
+    return { cab: `${((px / L.vw) * 100).toFixed(3)}% ${((fb / L.vh) * 100).toFixed(3)}%`, floor: `${px}px ${fb}px`, shadow: `${xs[side] + fw / 2}px ${fb}px` };
+  }
+  // a drawer jolted in its slot, as a CSS transform: moved x, y and turned r degrees about its middle, which middle()
+  // gives for drawer `i` as a transform-origin
+  const shaken = (x, y, r) => `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${r.toFixed(3)}deg)`;
+  const middle = (L, i) => `${f(L.cells[i][0] + L.dw / 2)}px ${f(L.cells[i][1] + L.dh / 2)}px`;
+
   // the cabinet body and every drawer, closed; each drawer is its own button. Each front is drawn from its own seed, so
-  // pulled() draws it stroke for stroke the same and a drawer starting to come out doesn't flicker.
-  function cabinet(drawers, cols) {
+  // pulled() draws it stroke for stroke the same and a drawer starting to come out doesn't flicker. `lift` is the tooltip
+  // on the feet.
+  function cabinet(drawers, cols, lift) {
     const L = layout(drawers.length, cols), { dw, dh } = L;
     seed('cabinet-' + cols);
-    let s = defs() + carcass(L);
+    let s = defs() + floor(L) + carcass(L) + legGrips(L, lift);
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
       seed('front:' + d.id);
@@ -278,7 +321,7 @@ window.Draw = (() => {
     const colors = ['#9fc6dd', '#efcd76', '#c3b1df', '#9cc27f', '#f2b98f', '#df8797'];
     const turn = [4, 0, 2, 1, 3, 5], tabs = [[2, 3], [1], [3], [2], [1, 2], [2]];
     seed('loader');
-    let s = defs() + carcass(L);
+    let s = defs() + floor(L) + carcass(L);
     // the bottom row first, so a top drawer coming out lies over the one below it
     for (const i of [3, 4, 5, 0, 1, 2]) {
       const [x, y] = L.cells[i], k = turn[i], first = k === 0 ? ' ld-first' : '';
@@ -305,5 +348,5 @@ window.Draw = (() => {
     return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="${esc(label)}"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, label, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
   }
 
-  return { esc, hash, rng, cabinet, pulled, setPull, reach, flag, dim, note, loader, INK, RED };
+  return { esc, hash, rng, cabinet, pulled, setPull, reach, rise, tipped, pivots, shaken, middle, flag, dim, note, loader, INK, RED };
 })();
