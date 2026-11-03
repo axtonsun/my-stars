@@ -370,14 +370,17 @@
   ld.insertAdjacentHTML('afterbegin', Draw.loader());
   $('.ld-msg').innerHTML = `<p>${esc(T().loading)}</p>`;
 
-  load().then(() => {
-    // the loading picture fades in after a moment (style.css); if it was up, the cabinet fades in after it
-    const shown = +getComputedStyle(ld).opacity > 0;
+  // The loading picture stays up for at least SHOW ms from opening the page, even when the data comes sooner. The data
+  // loads meanwhile, so a slow connection waits no longer than it would anyway. Then it fades out and the cabinet in.
+  const SHOW = 3000;
+  const shown = new Promise((ok) => setTimeout(ok, Math.max(0, SHOW - performance.now())));
+  Promise.all([load(), shown]).then(async () => {
+    await ld.animate({ opacity: [1, 0] }, { duration: 200, easing: 'ease-in', fill: 'forwards' }).finished;
     ld.remove();
     readHash();
     bind();
     render();
-    if (shown) $('.layout').animate({ opacity: [0, 1] }, { duration: 300, easing: 'ease-out' });
+    $('.layout').animate({ opacity: [0, 1] }, { duration: 300, easing: 'ease-out' });
   }).catch((err) => {
     // the drawers stop and the message says what went wrong (put back if it failed after the data came)
     document.body.dataset.view = 'loading';

@@ -197,22 +197,22 @@ html:lang(en) .stamp b { letter-spacing: .02em; text-transform: none; }
 .foot { max-width: 1440px; margin: 18px auto 0; padding: 0 56px 32px; text-align: right; font-size: 13px; color: var(--faint); }
 
 /* ---------- loading ---------- */
-/* Until the data arrives, a small cabinet stands in the middle of the space below the header, its drawers coming out
-   one at a time (draw.js draws it). It fades in after a moment, so a fast load never flashes it. */
+/* Until the data arrives, and for at least 3 seconds (app.js), a small cabinet stands in the middle of the space below
+   the header, its drawers coming out one at a time (draw.js draws it). */
 .loading { display: none; }
 body[data-view="loading"] { display: flex; flex-direction: column; min-height: 100svh; }
 body[data-view="loading"] > * { width: 100%; }
 body[data-view="loading"] .layout { flex: 1; display: flex; align-items: center; justify-content: center; }
 body[data-view="loading"] .cab-col, body[data-view="loading"] .panel { display: none; }
-body[data-view="loading"] .loading { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 7vh; animation: ld-show .5s .3s both; }
+body[data-view="loading"] .loading { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 7vh; animation: ld-show .4s both; }
 .ld-cab { display: block; width: 300px; height: auto; }
 .ld-msg { max-width: 100%; padding: 0 16px; text-align: center; overflow-wrap: anywhere; }
 .ld-msg p { margin: 0; font-size: 17px; letter-spacing: .14em; color: var(--sub); }
 .ld-msg p + p { margin-top: 4px; font-size: 14px; letter-spacing: .04em; color: var(--faint); }
 html:lang(en) .ld-msg p, .failed .ld-msg p { letter-spacing: .04em; }
 /* a drawer starts every 0.75s of a 4.5s round: out in 0.27s, held for 0.38s, back in 0.27s as the next one starts */
-.ld-out { animation: ld-pull 4.5s calc(.4s + var(--k) * .75s) infinite both; }
-.ld-in, .ld-rim { opacity: 0; animation: ld-open 4.5s calc(.4s + var(--k) * .75s) infinite both; }
+.ld-out { animation: ld-pull 4.5s calc(.2s + var(--k) * .75s) infinite both; }
+.ld-in, .ld-rim { opacity: 0; animation: ld-open 4.5s calc(.2s + var(--k) * .75s) infinite both; }
 .loading.failed .ld-out, .loading.failed .ld-in, .loading.failed .ld-rim { animation: none; }
 @keyframes ld-show { from { opacity: 0; } }
 @keyframes ld-pull {
