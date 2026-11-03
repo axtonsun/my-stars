@@ -39,6 +39,7 @@ window.I18N = (() => {
 
     drawer: (name, n) => `${name}，${n} 张`,
     close: (name) => `合上「${name}」`,
+    guideCard: (tag, n) => `分隔卡「${tag}」，${n} 张`,
     flag: (n) => `${n} 张`,
     note: (n) => `待归档 ${n} 张`,
 
@@ -116,6 +117,7 @@ window.I18N = (() => {
 
     drawer: (name, n) => `${name}, ${pl(n, 'card')}`,
     close: (name) => `Close “${name}”`,
+    guideCard: (tag, n) => `“${tag}” guide card, ${pl(n, 'card')}`,
     flag: (n) => String(n),
     note: (n) => `${n} unfiled`,
 
