@@ -71,7 +71,9 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 .sort { display: flex; gap: 16px; font-size: 14px; }
 .sort a { color: var(--faint); text-decoration: none; }
 .sort a[aria-current] { color: var(--red); border-bottom: 1px solid var(--red); }
-.hint { margin: 16px 2px 0; font-size: 13.5px; color: var(--body); }
+.hint { display: grid; margin: 10px 2px 0; font-size: 13.5px; color: var(--sub); }
+.hint > span { grid-area: 1 / 1; visibility: hidden; }
+.hint > .on { visibility: visible; }
 
 /* the open drawer's tray */
 .tray {
@@ -195,6 +197,7 @@ html:lang(en) .stamp b { letter-spacing: .02em; text-transform: none; }
   .panel { height: auto; overflow: visible; padding: 0; }
   body[data-view="home"] .panel { margin-top: 26px; }
   .tray { overflow: visible; }
+  .hint.idle { display: none; }
   .back { display: inline-block; margin: 2px 0 10px; font-size: 15px; color: var(--red); text-decoration: none; }
   body[data-view="home"] .back { display: none; }
   .aside .wide { display: none; }
