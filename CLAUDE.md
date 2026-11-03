@@ -7,6 +7,7 @@ Static site that shows the owner's GitHub stars grouped by purpose. Deployed to 
 - `site/`: vanilla HTML/CSS/JS with no build step and no external resources (the owner is in China, so no CDNs or Google Fonts; fonts are self-hosted in `site/fonts/`). It reads both JSON files at runtime. The UI is a card-catalogue cabinet: one drawer per category, one card per repo. `draw.js` draws the cabinet as hand-drawn SVG, `app.js` handles state (kept in the URL hash: `c` drawer, `t` tag, `s` sort, `q` search, `r` repo, `l` language), and `i18n.js` holds the interface text in Chinese and English. A starred repo with no entry in `classification.json` goes into the built-in `inbox` (「待归档」).
 - The site is bilingual. With no `l` in the URL it uses the language the visitor picked last (saved in the browser), else the browser's language (Chinese if any preferred language is Chinese, otherwise English); the 中文 / EN switch in the header changes it. Search matches both languages either way. Interface text lives only in `i18n.js`: add every new string there in both languages instead of writing it into `app.js` or `draw.js`.
 - The design explorations (other directions, mockups) live on the `design-explorations` branch, not on `main`.
+- `README.md` (Chinese) and `README.en.md` (English) say the same thing. When a change makes one out of date, update both.
 
 The owner writes in Chinese. Write summaries and tags in Simplified Chinese, and also write the English versions (`summary_en`, plus a `tags_en` entry for every new Chinese tag).
 
