@@ -256,6 +256,12 @@
   }
 
   /* ---------- render ---------- */
+  // When the tag tabs get a scrollbar that takes up room (not an overlay one), it stands in for the
+  // guide strip's bottom padding. It comes and goes with the panel width and the fonts loading.
+  const tabBar = new ResizeObserver(([e]) => requestAnimationFrame(() => {
+    const g = e.target;
+    g.classList.toggle('has-bar', g.offsetHeight - g.clientHeight > 2);
+  }));
   function render() {
     if (S.l !== SHOWN) chrome();
     const v = view();
@@ -266,6 +272,11 @@
     panel.scrollTop = 0;
     const tray = panel.querySelector('.tray');
     if (tray) tray.scrollTop = 0;
+    // tag tabs: bring the chosen one into view, and watch for the scrollbar (see tabBar)
+    const g = panel.querySelector('.guides'), cur = g && g.querySelector('[aria-current]');
+    if (cur) g.scrollLeft = cur.offsetLeft - (g.clientWidth - cur.offsetWidth) / 2;
+    tabBar.disconnect();
+    if (g) tabBar.observe(g, { box: 'border-box' });
     const c = v === 'drawer' || v === 'inbox' ? cname(D.cats[S.c]) : v === 'card' ? D.byName[S.r].name : v === 'search' ? T().searchKicker(S.q.trim()) : '';
     document.title = (c ? c + ' · ' : '') + T().docTitle(D.user);
   }
@@ -282,6 +293,14 @@
     };
     cab.addEventListener('click', (e) => activate(e.target));
     cab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e.target); } });
+    // a plain mouse wheel over the tag tabs scrolls them sideways (trackpads scroll sideways already)
+    $('#panel').addEventListener('wheel', (e) => {
+      const g = e.target.closest('.guides');
+      if (!g || e.deltaX || g.scrollWidth <= g.clientWidth) return;
+      const x = g.scrollLeft;
+      g.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+      if (g.scrollLeft !== x) e.preventDefault();
+    }, { passive: false });
 
     const q = $('#q');
     q.addEventListener('input', () => go({ q: q.value, r: '' }, true));

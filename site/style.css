@@ -86,9 +86,23 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
   border: 2.4px solid #4c4842; border-radius: 0 0 22px 22px; box-shadow: none;
 }
 
-/* guide cards: one tab per tag, sticking up above the cards */
-.guides { position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; overflow-x: auto; margin: 0 -14px 14px; padding: 14px 14px 0; background: var(--tray) var(--noise); border-bottom: 8px solid var(--guide); box-shadow: 0 1px 0 var(--ink); scrollbar-width: none; }
-.guides::-webkit-scrollbar { display: none; }
+/* guide cards: one tab per tag, sticking up above the cards. The tabs stay on one row; when they
+   don't fit, the row scrolls sideways and its scrollbar runs inside the guide strip under the tabs.
+   The strip is the bottom 8px of the box: bottom padding when there is no scrollbar (or when it
+   only overlays, as on phones), the scrollbar itself when there is one (app.js then adds .has-bar).
+   The scrollbar is styled so it stays visible, also on macOS. */
+.guides {
+  position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; margin: 0 -14px 14px; padding: 14px 14px 8px;
+  background: linear-gradient(var(--guide), var(--guide)) left bottom / 100% 8px no-repeat border-box, var(--tray) var(--noise);
+  box-shadow: 0 1px 0 var(--ink);
+  scrollbar-width: auto; scrollbar-color: auto; /* so Chrome uses the ::-webkit-scrollbar styles below */
+}
+.guides.has-bar { padding-bottom: 0; }
+.guides::-webkit-scrollbar { height: 8px; }
+.guides::-webkit-scrollbar-track { margin: 0 12px; border: 2px solid transparent; border-radius: 4px; background: padding-box rgba(169, 123, 76, .18); }
+.guides::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 4px; background: padding-box var(--wood-deep); }
+.guides::-webkit-scrollbar-thumb:hover { background-color: #8c6239; }
+@supports not selector(::-webkit-scrollbar) { .guides { scrollbar-width: thin; scrollbar-color: var(--wood-deep) transparent; } }
 .guides a { position: relative; z-index: 0; flex: none; padding: 5px 16px 3px; font-size: 13px; color: var(--body); text-decoration: none; white-space: nowrap; }
 .guides a::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--guide); border: .9px solid var(--ink); border-bottom: 0; transform: perspective(26px) rotateX(5deg); transform-origin: bottom; }
 .guides a b { font-weight: 400; font-family: var(--latin); }
