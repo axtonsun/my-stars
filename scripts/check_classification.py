@@ -2,12 +2,17 @@
 """Compare data/stars.json with data/classification.json.
 
 Prints starred repos that have no category yet (they show up under
-「新收藏 · 待分类」on the site), entries for repos that are no longer starred,
-and any entry pointing at an unknown category. Exits 1 if something needs fixing.
+「待归档」on the site), entries for repos that are no longer starred,
+any entry pointing at an unknown category, and English text that is missing
+(category name_en / desc_en, repo summary_en, or a Chinese tag with no
+translation in tags_en). Exits 1 if something needs fixing.
 """
 import json
 import os
+import re
 import sys
+
+CJK = re.compile(r"[\u3000-\u9fff\uff00-\uffef]")
 
 DATA = os.path.join(os.path.dirname(__file__), "..", "data")
 
@@ -30,6 +35,13 @@ def main():
     grouped = {c for g in cls["groups"] for c in g["cats"]}
     ungrouped = [c for c in cats if c not in grouped]
 
+    tags_en = cls.get("tags_en", {})
+    used_tags = {t for n, e in entries.items() if n in starred for t in e.get("tags", [])}
+    no_en = [f"category {c}" for c, m in cats.items() if not m.get("name_en") or not m.get("desc_en")]
+    no_en += [f"{n}  summary_en" for n, e in entries.items() if n in starred and not e.get("summary_en")]
+    no_en += [f"tag 「{t}」 (add it to tags_en)" for t in sorted(used_tags) if CJK.search(t) and t not in tags_en]
+    unused_en = [t for t in tags_en if t not in used_tags]
+
     print(f"starred: {len(stars)}  classified: {len(entries) - len(stale)}  categories: {len(cats)}")
     for r in missing:
         print(f"  UNCLASSIFIED  {r['full_name']}  [{r['language'] or '-'}]  {r['description'][:100]}")
@@ -39,15 +51,19 @@ def main():
         print(f"  BAD CATEGORY  {n} -> {entries[n].get('cat')}")
     for c in ungrouped:
         print(f"  NO GROUP      {c}")
+    for x in no_en:
+        print(f"  NO ENGLISH    {x}")
+    for t in unused_en:
+        print(f"  UNUSED TAG    {t}  (no starred repo uses it; delete it from tags_en)")
 
     counts = {}
     for n, e in entries.items():
         if n in starred:
             counts[e["cat"]] = counts.get(e["cat"], 0) + 1
     for c, meta in cats.items():
-        print(f"  {counts.get(c, 0):>3}  {meta['glyph']} {meta['name']}")
+        print(f"  {counts.get(c, 0):>3}  {meta['glyph']} {meta['name']} / {meta.get('name_en', '?')}")
 
-    sys.exit(1 if (missing or stale or bad_cat or ungrouped) else 0)
+    sys.exit(1 if (missing or stale or bad_cat or ungrouped or no_en or unused_en) else 0)
 
 
 if __name__ == "__main__":

@@ -43,6 +43,19 @@ window.Draw = (() => {
   const fillRect = (x, y, w, h, color, o) => pencil(shape(rectPts(x, y, w, h)), color, o);
   const text = (x, y, s, o = {}) => `<text x="${f(x)}" y="${f(y)}" font-family="${o.latin ? 'Kevin Serif, LXGW WenKai, serif' : 'LXGW WenKai, serif'}" font-size="${o.size ?? 14}" font-weight="${o.bold ? 700 : 400}" fill="${o.color ?? INK}" text-anchor="${o.anchor ?? 'start'}" letter-spacing="${o.ls ?? 0}">${esc(s)}</text>`;
   const cw = (s, px) => [...s].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? px : px * 0.56), 0);
+  // a drawer name on a plate `w` wide: one line if it fits, else two lines split at the most even space
+  // (never starting a line with "&"; the second line keeps clear of the count in the corner), shrunk if still too long
+  function plate(name, w, px) {
+    if (cw(name, px) <= w) return { lines: [name], size: px + 1 };
+    let best = null;
+    for (let k = name.indexOf(' '); k > 0; k = name.indexOf(' ', k + 1)) {
+      if (name[k + 1] === '&') continue;
+      const lines = [name.slice(0, k), name.slice(k + 1)], m = Math.max(cw(lines[0], px), cw(lines[1], px) + 24);
+      if (!best || m <= best.m) best = { lines, m };
+    }
+    if (!best) return { lines: [name], size: Math.min(px + 1, (px * w) / cw(name, px)) };
+    return { lines: best.lines, size: best.m > w ? (px * w) / best.m : px };
+  }
   function pin(x, y, color) {
     const c = `M${x - 7} ${y}a7 7 0 1 0 14 0a7 7 0 1 0 -14 0`;
     return `<ellipse cx="${f(x + 2.5)}" cy="${f(y + 4)}" rx="7" ry="4" fill="#000" opacity=".16"/>` + pencil(c, color, { op: 0.95, strokes: false }) + ink(c, { w: 1 }) + `<circle cx="${f(x - 2.4)}" cy="${f(y - 2.4)}" r="1.8" fill="#fff" opacity=".8"/>`;
@@ -85,9 +98,9 @@ window.Draw = (() => {
     const big = dh > 140, lw = dw - (big ? 40 : 22), lx = x + (dw - lw) / 2, ly = y + (big ? 18 : 12), lh = big ? 54 : 44;
     s += fillRect(lx - 4, ly - 4, lw + 8, lh + 8, BRASS, { op: 0.85, strokes: false }) + box(lx - 4, ly - 4, lw + 8, lh + 8, { w: 0.9, once: true });
     s += `<rect x="${f(lx)}" y="${ly}" width="${f(lw)}" height="${lh}" fill="${CREAM}"/>` + fillRect(lx, ly, lw, 6, d.color, { op: 0.9, strokes: false });
-    const name = d.name, sp = cw(name, lp) > lw - 10 && name.includes(' ') ? name.lastIndexOf(' ', Math.min(name.length - 1, 9)) : -1;
-    if (sp > 0) s += text(lx + lw / 2, ly + lh / 2 - 1, name.slice(0, sp), { size: lp, anchor: 'middle' }) + text(lx + lw / 2, ly + lh / 2 + lp + 1, name.slice(sp + 1), { size: lp, anchor: 'middle' });
-    else s += text(lx + lw / 2, ly + lh / 2 + lp * 0.4, name, { size: lp + 1, anchor: 'middle' });
+    const { lines, size } = plate(d.name, lw - 10, lp);
+    if (lines.length > 1) s += text(lx + lw / 2, ly + lh / 2 - 1, lines[0], { size, anchor: 'middle' }) + text(lx + lw / 2, ly + lh / 2 + size + 1, lines[1], { size, anchor: 'middle' });
+    else s += text(lx + lw / 2, ly + lh / 2 + lp * 0.4, lines[0], { size, anchor: 'middle' });
     s += text(lx + lw - 3, ly + lh - 3, String(d.count), { size: 10.5, anchor: 'end', color: RED, latin: true });
     const hx = x + dw / 2, hy = y + dh - (big ? 44 : 30), hr = big ? 9 : 7, ring = `M${f(hx - hr)} ${f(hy)}a${hr} ${hr} 0 1 0 ${2 * hr} 0a${hr} ${hr} 0 1 0 ${-2 * hr} 0`, pull = `M${f(hx - hr * 1.45)} ${f(hy + 2)}a${f(hr * 1.45)} ${f(hr * 1.65)} 0 0 0 ${f(hr * 2.9)} 0`;
     s += pencil(ring, BRASS, { op: 0.95, strokes: false }) + ink(ring, { w: 1 }) + ink(pull, { w: 2, color: '#7a5a22' }) + ink(pull, { w: 0.9 });
@@ -104,7 +117,7 @@ window.Draw = (() => {
     for (let i = 0; i < H / 18; i++) { const yy = Y + 20 + R() * (H - 30); s += line(X + 6, yy, X + W - 6, yy + j(3), { w: 0.5, op: 0.25, color: '#3b2413' }); }
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
-      s += `<g class="drawer" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.name)}，${d.count} 张">` + front(x, y, dw, dh, d, L.lp) +
+      s += `<g class="drawer" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.label)}">` + front(x, y, dw, dh, d, L.lp) +
         `<rect class="hov" x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}"/><rect class="ring" x="${f(x - 3)}" y="${y - 3}" width="${f(dw + 6)}" height="${dh + 6}" rx="3"/></g>`;
     });
     return { svg: s, L };
@@ -139,21 +152,21 @@ window.Draw = (() => {
     s += `<rect x="${f(fx + 4)}" y="${f(fy + fh - 6)}" width="${f(fw - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(fx + 10)}" y="${f(fy + fh)}" width="${f(fw - 20)}" height="7" fill="#1e140c" opacity=".16"/>`;
     s += `<rect x="${f(fx)}" y="${f(fy - 5)}" width="${f(fw)}" height="6" fill="#ead2a8"/>` + box(fx, fy - 5, fw, 6, { w: 0.9, once: true });
     s += `<g transform="translate(${f(fx)} ${f(fy)}) scale(${sc}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, dw, dh, d, L.lp) + '</g>';
-    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="合上「${esc(d.name)}」">${s}</g>`;
+    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>`;
   }
 
   // a red paper flag sticking out of a drawer: how many cards match the search
-  function flag(L, i, n, id) {
+  function flag(L, i, label, id) {
     const [x, y] = L.cells[i], fx = x + L.dw - 18, fy = y - 8, rot = ((hash(id) % 60) / 10 - 3).toFixed(1);
-    return `<g transform="rotate(${rot} ${f(fx)} ${fy})" class="flag"><rect x="${f(fx - 22)}" y="${fy}" width="38" height="24" fill="${RED}"/><rect x="${f(fx - 22)}" y="${fy}" width="38" height="24" fill="#c2544a" opacity=".5"/>` + text(fx - 3, fy + 17, `${n} 张`, { size: 12.5, anchor: 'middle', color: '#fff6ea' }) + '</g>';
+    return `<g transform="rotate(${rot} ${f(fx)} ${fy})" class="flag"><rect x="${f(fx - 22)}" y="${fy}" width="38" height="24" fill="${RED}"/><rect x="${f(fx - 22)}" y="${fy}" width="38" height="24" fill="#c2544a" opacity=".5"/>` + text(fx - 3, fy + 17, label, { size: 12.5, anchor: 'middle', color: '#fff6ea' }) + '</g>';
   }
   const dim = (L, i) => { const [x, y] = L.cells[i]; return `<rect x="${f(x - 1)}" y="${y - 1}" width="${f(L.dw + 2)}" height="${L.dh + 2}" fill="#3b2a1e" opacity=".42" pointer-events="none"/>`; };
 
   // a note pinned to the top of the cabinet when new stars are waiting to be filed
-  function note(L, n) {
+  function note(L, label) {
     const cx = L.X + L.W - 140, cy = L.Y - 22;
     seed('note');
-    return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="待归档 ${n} 张"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, `待归档 ${n} 张`, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
+    return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="${esc(label)}"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, label, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
   }
 
   return { esc, hash, rng, cabinet, pulled, flag, dim, note, INK, RED };

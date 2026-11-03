@@ -12,8 +12,9 @@
 </head>
 <body data-view="home">
 <header class="top">
+  <div class="lang" role="group" aria-label="语言 / Language"><button type="button" data-lang="zh" lang="zh-CN" aria-pressed="true">中文</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div>
   <div class="ttl">
-    <div class="ttl-row"><h1>目录柜</h1><p class="en">a card catalogue of GitHub stars</p></div>
+    <div class="ttl-row"><h1>目录柜</h1><p id="alt" class="alt">a card catalogue of GitHub stars</p></div>
     <p id="sub" class="sub">一个抽屉一个分类，抽屉里一个仓库一张卡片</p>
   </div>
   <label class="search">
@@ -27,6 +28,7 @@
   <section id="panel" class="panel" aria-live="polite"><p class="loading">正在打开柜子……</p></section>
 </main>
 <footer id="foot" class="foot"></footer>
+<script src="i18n.js"></script>
 <script src="draw.js"></script>
 <script src="app.js"></script>
 </body>
