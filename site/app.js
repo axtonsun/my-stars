@@ -76,11 +76,12 @@
     D = { user: stars.user, synced: stars.synced_at, repos, cats, order, tagsEn, byName: Object.fromEntries(repos.map((r) => [r.full_name, r])) };
   }
   const inCat = (id) => D.repos.filter((r) => r.cat === id);
-  // a drawer's guide cards, as [tag, count]: its most used tags, plus the one being filtered on
+  // a drawer's guide cards, as [tag, count]: every tag at least two of its cards share, most used first, plus the one
+  // being filtered on. Languages are never guide cards: tags don't name them (see CLAUDE.md).
   function guides(id) {
     const tc = {};
     inCat(id).forEach((r) => r.tags.forEach((x) => { tc[x] = (tc[x] || 0) + 1; }));
-    const tabs = Object.entries(tc).filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const tabs = Object.entries(tc).filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]);
     if (S.t && S.c === id && !tabs.some(([x]) => x === S.t)) tabs.push([S.t, tc[S.t] || 0]);
     return tabs;
   }
