@@ -86,17 +86,17 @@ window.Draw = (() => {
   // a pulled drawer comes down by PULL of its height and grows by SC; CAP cards make a drawer look full
   const PULL = 0.33, SC = 1.07, CAP = 36;
 
-  // geometry for `n` drawers in `cols` columns
-  function layout(n, cols) {
-    const phone = cols < 4;
-    const W = phone ? 342 : 780, pad = phone ? 12 : 20, gx = phone ? 10 : 14, rows = Math.ceil(n / cols);
-    const dw = (W - 2 * pad - (cols - 1) * gx) / cols, dh = phone ? 128 : 160;
+  // geometry for `n` drawers in `cols` columns: a cabinet `W` wide with `pad` inside its sides, drawers `dh` tall
+  // and `gx` apart, labels in `lp` px
+  function grid(n, cols, W, pad, gx, dh, lp) {
+    const rows = Math.ceil(n / cols), dw = (W - 2 * pad - (cols - 1) * gx) / cols;
     const X = 16, Y = 40, H = 46 + rows * dh + (rows - 1) * gx;
     const cells = Array.from({ length: n }, (_, i) => [X + pad + (i % cols) * (dw + gx), Y + 30 + Math.floor(i / cols) * (dh + gx)]);
     // the cabinet stands on feet just tall enough for a pulled bottom drawer to clear the floor
     const foot = Math.ceil(dh * (PULL + (SC - 1) / 2) - 16 + 6);
-    return { W, H, X, Y, dw, dh, cells, foot, lp: phone ? 13 : 14, vw: W + 32, vh: Y + H + foot + 16 };
+    return { W, H, X, Y, dw, dh, cells, foot, lp, vw: W + 32, vh: Y + H + foot + 16 };
   }
+  const layout = (n, cols) => (cols < 4 ? grid(n, cols, 342, 12, 10, 128, 13) : grid(n, cols, 780, 20, 14, 160, 14));
 
   function front(x, y, dw, dh, d, lp) {
     let s = `<rect x="${f(x)}" y="${f(y)}" width="${f(dw)}" height="${dh}" fill="#dcbf92"/>` + fillRect(x, y, dw, dh, WOOD, { op: 0.95 }) + box(x, y, dw, dh, { w: 1.2 }) + box(x + 5, y + 5, dw - 10, dh - 10, { w: 0.6, once: true, op: 0.6 });
@@ -112,12 +112,10 @@ window.Draw = (() => {
     return s;
   }
 
-  // the cabinet body and every drawer, closed; each drawer is its own button
-  function cabinet(drawers, cols) {
-    const L = layout(drawers.length, cols), { W, H, X, Y, dw, dh } = L;
-    seed('cabinet-' + cols);
-    let s = defs();
-    s += fillRect(X - 14, Y - 12, W + 28, 22, WOOD_DEEP, { op: 0.9 }) + box(X - 14, Y - 12, W + 28, 22, { w: 1.3 });
+  // the cabinet without its drawers: top, body, plinth and feet
+  function carcass(L) {
+    const { W, H, X, Y } = L;
+    let s = fillRect(X - 14, Y - 12, W + 28, 22, WOOD_DEEP, { op: 0.9 }) + box(X - 14, Y - 12, W + 28, 22, { w: 1.3 });
     s += `<rect x="${X}" y="${Y + 10}" width="${W}" height="${H - 10}" fill="#b98c5e"/>` + fillRect(X, Y + 10, W, H - 10, TEA, { op: 0.7 }) + box(X, Y + 10, W, H - 10, { w: 1.4 });
     for (let i = 0; i < H / 18; i++) { const yy = Y + 20 + R() * (H - 30); s += line(X + 6, yy, X + W - 6, yy + j(3), { w: 0.5, op: 0.25, color: '#3b2413' }); }
     // the plinth and two tapered feet, with their shadows on the floor
@@ -128,6 +126,14 @@ window.Draw = (() => {
       s += `<ellipse cx="${x0 + fw / 2}" cy="${fb}" rx="${fw / 2 + 5}" ry="2.6" fill="#3b2a1e" opacity=".22"/><path d="${shape(leg)}" fill="#9a6d43"/>` + pencil(shape(leg), TEA, { op: 0.8 }) + outline(leg, { w: 1.2 });
     }
     s += `<rect x="${X - 6}" y="${by}" width="${W + 12}" height="${ph}" fill="#9a6d43"/>` + fillRect(X - 6, by, W + 12, ph, WOOD_DEEP, { op: 0.9 }) + box(X - 6, by, W + 12, ph, { w: 1.3 });
+    return s;
+  }
+
+  // the cabinet body and every drawer, closed; each drawer is its own button
+  function cabinet(drawers, cols) {
+    const L = layout(drawers.length, cols), { dw, dh } = L;
+    seed('cabinet-' + cols);
+    let s = defs() + carcass(L);
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
       s += `<g class="drawer" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.label)}">` + front(x, y, dw, dh, d, L.lp) +
@@ -143,6 +149,17 @@ window.Draw = (() => {
   // the panel; tab `active` is lit. Each tab is a button of its own, laid over the drawer so a click on it picks that
   // tag instead of closing the drawer.
   function pulled(L, i, d, tabs = [], active = -1) {
+    const { s: inner, btns, fx, fy, fw, fh } = inside(L, i, d, tabs, active);
+    const s = inner + rim(fx, fy, fw, fh) + `<g transform="translate(${f(fx)} ${f(fy)}) scale(${SC}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, L.dw, L.dh, d, L.lp) + '</g>';
+    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>` + btns.join('');
+  }
+
+  // what a drawer front at x, y, w × h has around it once pulled out: its shadow below and the drawer's top edge above
+  const rim = (x, y, w, h) => `<rect x="${f(x + 4)}" y="${f(y + h - 6)}" width="${f(w - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(x + 10)}" y="${f(y + h)}" width="${f(w - 20)}" height="7" fill="#1e140c" opacity=".16"/>` +
+    `<rect x="${f(x)}" y="${f(y - 5)}" width="${f(w)}" height="6" fill="#ead2a8"/>` + box(x, y - 5, w, 6, { w: 0.9, once: true });
+
+  // the pulled drawer up to its front: the opening, the floor, the cards and the side walls; also the front's place
+  function inside(L, i, d, tabs, active) {
     const [x, y] = L.cells[i], { dw, dh } = L, guides = tabs.length;
     const fw = dw * SC, fh = dh * SC, fx = x + dw / 2 - fw / 2, fy = y + dh * PULL - (fh - dh) / 2;
     seed(d.id + ':pulled');
@@ -206,10 +223,29 @@ window.Draw = (() => {
       const wall = `M${f(a(0))} ${back}L${f(b(0))} ${back}L${f(b(1))} ${f(near)}L${f(a(1))} ${f(near)}Z`;
       s += `<path d="${wall}" fill="#c9a26e"/>` + pencil(wall, WOOD_DEEP, { op: 0.55, strokes: false }) + ink(wall, { w: 0.8 });
     }
-    s += `<rect x="${f(fx + 4)}" y="${f(fy + fh - 6)}" width="${f(fw - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(fx + 10)}" y="${f(fy + fh)}" width="${f(fw - 20)}" height="7" fill="#1e140c" opacity=".16"/>`;
-    s += `<rect x="${f(fx)}" y="${f(fy - 5)}" width="${f(fw)}" height="6" fill="#ead2a8"/>` + box(fx, fy - 5, fw, 6, { w: 0.9, once: true });
-    s += `<g transform="translate(${f(fx)} ${f(fy)}) scale(${SC}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, dw, dh, d, L.lp) + '</g>';
-    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>` + btns.join('');
+    return { s, btns, fx, fy, fw, fh };
+  }
+
+  // The loading picture: a small cabinet of six blank drawers that come out one after another. Each drawer is drawn
+  // closed, with its inside as when pulled out underneath; style.css slides the front (.ld-out) down by --dy and grows
+  // it about its middle, as pulled() draws it, and shows the inside and the rim (.ld-in, .ld-rim) while it is out.
+  // --k is a drawer's turn; the .ld-first one stays out when motion is reduced.
+  function loader() {
+    const L = grid(6, 3, 560, 20, 14, 160, 14), { dw, dh } = L;
+    const colors = ['#9fc6dd', '#efcd76', '#c3b1df', '#9cc27f', '#f2b98f', '#df8797'];
+    const turn = [4, 0, 2, 1, 3, 5], tabs = [[2, 3], [1], [3], [2], [1, 2], [2]];
+    seed('loader');
+    let s = defs() + carcass(L);
+    // the bottom row first, so a top drawer coming out lies over the one below it
+    for (const i of [3, 4, 5, 0, 1, 2]) {
+      const [x, y] = L.cells[i], k = turn[i], first = k === 0 ? ' ld-first' : '';
+      const d = { id: 'loader-' + i, name: '', count: 14 + ((i * 7) % 6) * 3, color: colors[i] };
+      const { s: inner } = inside(L, i, d, Array.from({ length: tabs[i][0] }, () => ({ tag: '', label: '' })), tabs[i][1] ?? -1);
+      const at = `style="--k:${k};--dy:${f(dh * PULL)}px;transform-origin:${f(x + dw / 2)}px ${f(y + dh / 2)}px"`;
+      s += `<g class="ld-in${first}" style="--k:${k}">${inner}</g>` +
+        `<g class="ld-out${first}" ${at}><g class="ld-rim">${rim(x, y, dw, dh)}</g>${front(x, y, dw, dh, { ...d, count: '' }, L.lp)}</g>`;
+    }
+    return `<svg class="ld-cab" viewBox="0 0 ${L.vw} ${L.vh}" aria-hidden="true">${s}</svg>`;
   }
 
   // a red paper flag sticking out of a drawer: how many cards match the search
@@ -226,5 +262,5 @@ window.Draw = (() => {
     return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="${esc(label)}"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, label, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
   }
 
-  return { esc, hash, rng, cabinet, pulled, flag, dim, note, INK, RED };
+  return { esc, hash, rng, cabinet, pulled, flag, dim, note, loader, INK, RED };
 })();
