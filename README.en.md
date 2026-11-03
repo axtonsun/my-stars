@@ -70,5 +70,3 @@ Then serve that folder and open http://localhost:8000:
 ```bash
 cd /tmp/my-stars-preview && python3 -m http.server
 ```
-
-The design mockups and other directions are on the [`design-explorations`](https://github.com/axtonsun/my-stars/tree/design-explorations) branch.

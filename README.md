@@ -70,5 +70,3 @@ mkdir -p /tmp/my-stars-preview/data && cp -r site/. /tmp/my-stars-preview/ && cp
 ```bash
 cd /tmp/my-stars-preview && python3 -m http.server
 ```
-
-界面设计稿和其他备选方案在 [`design-explorations`](https://github.com/axtonsun/my-stars/tree/design-explorations) 分支。
