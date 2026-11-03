@@ -98,6 +98,14 @@ window.Draw = (() => {
   }
   const layout = (n, cols) => (cols < 4 ? grid(n, cols, 342, 12, 10, 128, 13) : grid(n, cols, 780, 20, 14, 160, 14));
 
+  // a drawer front's handle: the middle and radius of its brass ring, with the pull hanging below
+  const handle = (x, y, dw, dh) => { const big = dh > 140; return { hx: x + dw / 2, hy: y + dh - (big ? 44 : 30), hr: big ? 9 : 7 }; };
+  // an invisible patch over the handle, a little bigger than the ring and pull, to grab the drawer by
+  function grip(x, y, dw, dh) {
+    const { hx, hy, hr } = handle(x, y, dw, dh), w = hr * 2.9 + 24;
+    return `<rect class="grip" x="${f(hx - w / 2)}" y="${f(hy - hr - 10)}" width="${f(w)}" height="${f(hr * 2.65 + 24)}"/>`;
+  }
+
   function front(x, y, dw, dh, d, lp) {
     let s = `<rect x="${f(x)}" y="${f(y)}" width="${f(dw)}" height="${dh}" fill="#dcbf92"/>` + fillRect(x, y, dw, dh, WOOD, { op: 0.95 }) + box(x, y, dw, dh, { w: 1.2 }) + box(x + 5, y + 5, dw - 10, dh - 10, { w: 0.6, once: true, op: 0.6 });
     const big = dh > 140, lw = dw - (big ? 40 : 22), lx = x + (dw - lw) / 2, ly = y + (big ? 18 : 12), lh = big ? 54 : 44;
@@ -107,7 +115,7 @@ window.Draw = (() => {
     if (lines.length > 1) s += text(lx + lw / 2, ly + lh / 2 - 1, lines[0], { size, anchor: 'middle' }) + text(lx + lw / 2, ly + lh / 2 + size + 1, lines[1], { size, anchor: 'middle' });
     else s += text(lx + lw / 2, ly + lh / 2 + lp * 0.4, lines[0], { size, anchor: 'middle' });
     s += text(lx + lw - 3, ly + lh - 3, String(d.count), { size: 10.5, anchor: 'end', color: RED, latin: true });
-    const hx = x + dw / 2, hy = y + dh - (big ? 44 : 30), hr = big ? 9 : 7, ring = `M${f(hx - hr)} ${f(hy)}a${hr} ${hr} 0 1 0 ${2 * hr} 0a${hr} ${hr} 0 1 0 ${-2 * hr} 0`, pull = `M${f(hx - hr * 1.45)} ${f(hy + 2)}a${f(hr * 1.45)} ${f(hr * 1.65)} 0 0 0 ${f(hr * 2.9)} 0`;
+    const { hx, hy, hr } = handle(x, y, dw, dh), ring = `M${f(hx - hr)} ${f(hy)}a${hr} ${hr} 0 1 0 ${2 * hr} 0a${hr} ${hr} 0 1 0 ${-2 * hr} 0`, pull = `M${f(hx - hr * 1.45)} ${f(hy + 2)}a${f(hr * 1.45)} ${f(hr * 1.65)} 0 0 0 ${f(hr * 2.9)} 0`;
     s += pencil(ring, BRASS, { op: 0.95, strokes: false }) + ink(ring, { w: 1 }) + ink(pull, { w: 2, color: '#7a5a22' }) + ink(pull, { w: 0.9 });
     return s;
   }
@@ -129,41 +137,74 @@ window.Draw = (() => {
     return s;
   }
 
-  // the cabinet body and every drawer, closed; each drawer is its own button
+  // the cabinet body and every drawer, closed; each drawer is its own button. Each front is drawn from its own seed, so
+  // pulled() draws it stroke for stroke the same and a drawer starting to come out doesn't flicker.
   function cabinet(drawers, cols) {
     const L = layout(drawers.length, cols), { dw, dh } = L;
     seed('cabinet-' + cols);
     let s = defs() + carcass(L);
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
+      seed('front:' + d.id);
       s += `<g class="drawer" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.label)}">` + front(x, y, dw, dh, d, L.lp) +
-        `<rect class="hov" x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}"/><rect class="ring" x="${f(x - 3)}" y="${y - 3}" width="${f(dw + 6)}" height="${dh + 6}" rx="3"/></g>`;
+        `<rect class="hov" x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}"/><rect class="ring" x="${f(x - 3)}" y="${y - 3}" width="${f(dw + 6)}" height="${dh + 6}" rx="3"/>` + grip(x, y, dw, dh) + '</g>';
     });
     return { svg: s, L };
   }
 
-  // A drawer pulled straight out towards a viewer standing a little above it: the front comes down and grows a little,
-  // and between it and the cabinet you look into the drawer. Its cards (one line each, `d.count` of them) stand at the
-  // front, held up by a block; behind that is the empty floor with the rod the cards are threaded on. A guide card for
-  // each of `tabs` ({ tag, label }) is spread through the cards, their tabs stepping left to right like the tag tabs in
-  // the panel; tab `active` is lit. Each tab is a button of its own, laid over the drawer so a click on it picks that
-  // tag instead of closing the drawer.
-  function pulled(L, i, d, tabs = [], active = -1) {
-    const { s: inner, btns, fx, fy, fw, fh } = inside(L, i, d, tabs, active);
-    const s = inner + rim(fx, fy, fw, fh) + `<g transform="translate(${f(fx)} ${f(fy)}) scale(${SC}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, L.dw, L.dh, d, L.lp) + '</g>';
-    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>` + btns.join('');
+  // A drawer `p` of the way out (0 shut, 1 as far as it goes): the front comes down by p · PULL of its height and grows
+  // about its middle; the inside comes out with it from behind the cabinet's face, its near end as wide as the front.
+  // At p = 1 both are where inside() draws them.
+  function pose(L, i, p) {
+    const [x, y] = L.cells[i], { dw, dh } = L, cx = x + dw / 2, cy = y + dh / 2, s = 1 + (SC - 1) * p;
+    return {
+      out: `translate(${f(cx)} ${f(cy + dh * PULL * p)}) scale(${s.toFixed(4)}) translate(${f(-cx)} ${f(-cy)})`,
+      in: `translate(${f(cx)} ${f(-(1 - p) * dh * (PULL - (SC - 1) / 2))}) scale(${(s / SC).toFixed(4)} 1) translate(${f(-cx)} 0)`,
+      rim: Math.min(1, p * 4).toFixed(2),
+    };
+  }
+  // how far a drawer's handle moves, in cabinet units, from shut to all the way out
+  const reach = (L) => L.dh * PULL + (handle(0, 0, L.dw, L.dh).hy - L.dh / 2) * (SC - 1);
+
+  // A drawer pulled straight out towards a viewer standing a little above it, `p` of the way (see pose): the front comes
+  // down and grows a little, and between it and the cabinet you look into the drawer. Its cards (one line each, `d.count`
+  // of them) stand at the front, held up by a block; behind that is the empty floor with the rod the cards are threaded
+  // on. A guide card for each of `tabs` ({ tag, label }) is spread through the cards, their tabs stepping left to right
+  // like the tag tabs in the panel; tab `active` is lit. Each tab is a button of its own, laid over the drawer so a click
+  // on it picks that tag instead of closing the drawer. The front has a grip on its handle to drag the drawer by.
+  // Everything that moves is in a .pl-out (the front) or .pl-in (the inside) group, so setPull() can move it; what is
+  // still behind the cabinet's face is clipped away.
+  function pulled(L, i, d, tabs = [], active = -1, p = 1) {
+    const [x, y] = L.cells[i], { dw, dh } = L, { open, body, shade, walls, btns } = inside(L, i, d, tabs, active);
+    seed('front:' + d.id);
+    const face = front(x, y, dw, dh, d, L.lp) + grip(x, y, dw, dh), top = rimTop(x, y, dw, dh), ps = pose(L, i, p), clip = `pc-${i}`;
+    const inn = (s) => `<g clip-path="url(#${clip})"><g class="pl-in" transform="${ps.in}">${s}</g></g>`;
+    const out = (s) => `<g class="pl-out" transform="${ps.out}">${s}</g>`;
+    return `<g data-out="${esc(d.id)}"><clipPath id="${clip}"><rect x="${f(x - 12)}" y="${y}" width="${f(dw + 24)}" height="${dh}"/></clipPath>` +
+      `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">` +
+      open + inn(body) + shade + inn(walls) + `<g class="pl-rim" opacity="${ps.rim}">${out(rimUnder(x, y, dw, dh))}</g><g clip-path="url(#${clip})">${out(top)}</g>` + out(face) +
+      '</g>' + inn(btns.join('')) + '</g>';
+  }
+  // moves a drawer drawn by pulled() to `p` of the way out
+  function setPull(g, L, i, p) {
+    const ps = pose(L, i, p);
+    for (const e of g.querySelectorAll('.pl-out')) e.setAttribute('transform', ps.out);
+    for (const e of g.querySelectorAll('.pl-in')) e.setAttribute('transform', ps.in);
+    g.querySelector('.pl-rim')?.setAttribute('opacity', ps.rim);
   }
 
   // what a drawer front at x, y, w × h has around it once pulled out: its shadow below and the drawer's top edge above
-  const rim = (x, y, w, h) => `<rect x="${f(x + 4)}" y="${f(y + h - 6)}" width="${f(w - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(x + 10)}" y="${f(y + h)}" width="${f(w - 20)}" height="7" fill="#1e140c" opacity=".16"/>` +
-    `<rect x="${f(x)}" y="${f(y - 5)}" width="${f(w)}" height="6" fill="#ead2a8"/>` + box(x, y - 5, w, 6, { w: 0.9, once: true });
+  const rimUnder = (x, y, w, h) => `<rect x="${f(x + 4)}" y="${f(y + h - 6)}" width="${f(w - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(x + 10)}" y="${f(y + h)}" width="${f(w - 20)}" height="7" fill="#1e140c" opacity=".16"/>`;
+  const rimTop = (x, y, w) => `<rect x="${f(x)}" y="${f(y - 5)}" width="${f(w)}" height="6" fill="#ead2a8"/>` + box(x, y - 5, w, 6, { w: 0.9, once: true });
+  const rim = (x, y, w, h) => rimUnder(x, y, w, h) + rimTop(x, y, w, h);
 
-  // the pulled drawer up to its front: the opening, the floor, the cards and the side walls; also the front's place
+  // the pulled drawer up to its front, all the way out: the opening, the floor, the cards and the side walls
   function inside(L, i, d, tabs, active) {
     const [x, y] = L.cells[i], { dw, dh } = L, guides = tabs.length;
     const fw = dw * SC, fh = dh * SC, fx = x + dw / 2 - fw / 2, fy = y + dh * PULL - (fh - dh) / 2;
     seed(d.id + ':pulled');
-    let s = `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}" fill="#24180f"/>`;
+    const open = `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}" fill="#24180f"/>`;
+    let s = '';
     const wo = 3, wi = 11, back = y + 2, near = fy - 4;
     const Lx = (t, k) => x + k + (fx + k * SC - x - k) * t, Rx = (t, k) => x + dw - k + (fx + fw - k * SC - x - dw + k) * t, Y = (t) => back + (near - back) * t;
     // depth z (0 at the back, 1 at the front) to screen t: the far end is foreshortened
@@ -217,13 +258,15 @@ window.Draw = (() => {
       s += `<line x1="${f(xl)}" y1="${f(yy)}" x2="${f(xr)}" y2="${f(yy)}" stroke="${k >= 0 ? '#6f5b42' : '#8a7458'}" stroke-width="${f(0.5 + t * 0.9)}" opacity="${(0.45 + t * 0.45).toFixed(2)}"/>`;
       if (m % 2 === 0 || dz > 0.03) s += `<line x1="${f(xl)}" y1="${f(yy + 0.6 + t * 0.6)}" x2="${f(xr)}" y2="${f(yy + 0.6 + t * 0.6)}" stroke="#fffaf0" stroke-width="${f(0.5 + t * 0.7)}" opacity=".9"/>`;
     }
-    s += `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="7" fill="#1a110a" opacity=".55" filter="url(#edge)"/>`;
+    const shade = `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="7" fill="#1a110a" opacity=".55" filter="url(#edge)"/>`;
+    let walls = '';
     for (const side of [0, 1]) {
       const a = side ? (t) => Rx(t, wo) : (t) => Lx(t, wo), b = side ? (t) => Rx(t, wi) : (t) => Lx(t, wi);
       const wall = `M${f(a(0))} ${back}L${f(b(0))} ${back}L${f(b(1))} ${f(near)}L${f(a(1))} ${f(near)}Z`;
-      s += `<path d="${wall}" fill="#c9a26e"/>` + pencil(wall, WOOD_DEEP, { op: 0.55, strokes: false }) + ink(wall, { w: 0.8 });
+      walls += `<path d="${wall}" fill="#c9a26e"/>` + pencil(wall, WOOD_DEEP, { op: 0.55, strokes: false }) + ink(wall, { w: 0.8 });
     }
-    return { s, btns, fx, fy, fw, fh };
+    // the opening and the shadow under the cabinet's face stay put; the floor with its cards, and the walls, come out
+    return { open, body: s, shade, walls, btns };
   }
 
   // The loading picture: a small cabinet of six blank drawers that come out one after another. Each drawer is drawn
@@ -240,7 +283,7 @@ window.Draw = (() => {
     for (const i of [3, 4, 5, 0, 1, 2]) {
       const [x, y] = L.cells[i], k = turn[i], first = k === 0 ? ' ld-first' : '';
       const d = { id: 'loader-' + i, name: '', count: 14 + ((i * 7) % 6) * 3, color: colors[i] };
-      const { s: inner } = inside(L, i, d, Array.from({ length: tabs[i][0] }, () => ({ tag: '', label: '' })), tabs[i][1] ?? -1);
+      const { open, body, shade, walls } = inside(L, i, d, Array.from({ length: tabs[i][0] }, () => ({ tag: '', label: '' })), tabs[i][1] ?? -1), inner = open + body + shade + walls;
       const at = `style="--k:${k};--dy:${f(dh * PULL)}px;transform-origin:${f(x + dw / 2)}px ${f(y + dh / 2)}px"`;
       s += `<g class="ld-in${first}" style="--k:${k}">${inner}</g>` +
         `<g class="ld-out${first}" ${at}><g class="ld-rim">${rim(x, y, dw, dh)}</g>${front(x, y, dw, dh, { ...d, count: '' }, L.lp)}</g>`;
@@ -262,5 +305,5 @@ window.Draw = (() => {
     return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="${esc(label)}"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, label, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
   }
 
-  return { esc, hash, rng, cabinet, pulled, flag, dim, note, loader, INK, RED };
+  return { esc, hash, rng, cabinet, pulled, setPull, reach, flag, dim, note, loader, INK, RED };
 })();

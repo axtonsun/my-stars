@@ -151,26 +151,122 @@
     CAB = { L, cols };
   }
   function drawOverlay(v) {
-    const L = CAB.L;
+    const L = CAB.L, open = openId(v);
+    // the open drawer comes out, to where it was let go of after a drag or else all the way; every other one goes back in
+    if (LEFT.id !== open) LEFT = { id: '', p: 1 };
+    if (open && !OUT.has(open)) OUT.set(open, { p: 0 });
+    for (const [id] of OUT) if (DRAG?.id !== id) slide(id, id !== open ? 0 : LEFT.id === id ? LEFT.p : 1);
+    tidy();
+    document.querySelectorAll('#cabinet > .drawer').forEach((g) => g.classList.toggle('is-open', OUT.has(g.dataset.cat)));
     let s = '';
-    const open = v === 'card' ? D.byName[S.r].cat : v === 'drawer' ? S.c : '';
-    document.querySelectorAll('#cabinet .drawer').forEach((g) => g.classList.toggle('is-open', g.dataset.cat === open));
     if (v === 'search') {
       const hits = {};
       D.repos.filter((r) => matches(r)).forEach((r) => { hits[r.cat] = (hits[r.cat] || 0) + 1; });
       D.order.forEach((id, i) => { s += hits[id] ? Draw.flag(L, i, T().flag(hits[id]), id) : Draw.dim(L, i); });
     }
-    const i = D.order.indexOf(open);
-    if (i >= 0) {
-      const tabs = guides(open).map(([x, n]) => ({ tag: x, label: T().guideCard(tag(x), n) }));
-      s += Draw.pulled(L, i, drawerOf(open), tabs, S.t && S.c === open ? tabs.findIndex((g) => g.tag === S.t) : -1);
+    // the lower drawers first, so one coming out of the row above lies over them
+    const ids = [...OUT.keys()].sort((a, b) => D.order.indexOf(b) - D.order.indexOf(a));
+    for (const id of ids) {
+      const tabs = guides(id).map(([x, n]) => ({ tag: x, label: T().guideCard(tag(x), n) }));
+      s += Draw.pulled(L, D.order.indexOf(id), drawerOf(id), tabs, S.t && S.c === id ? tabs.findIndex((g) => g.tag === S.t) : -1, OUT.get(id).p);
     }
     const waiting = D.cats[INBOX].count;
     if (waiting) s += Draw.note(L, T().note(waiting));
     // a guide tab picked from the keyboard keeps the focus when the overlay is redrawn
     const a = document.activeElement, keep = a?.matches?.('#overlay .gtab:focus-visible') ? a.dataset.tag : null;
     $('#overlay').innerHTML = s;
+    for (const g of document.querySelectorAll('#overlay [data-out]')) OUT.get(g.dataset.out).el = g;
     if (keep !== null) [...document.querySelectorAll('#overlay .gtab')].find((g) => g.dataset.tag === keep)?.focus();
+  }
+
+  /* ---------- drawers coming out and going back ---------- */
+  // Every drawer drawn pulled out, by id: how far out it is (p: 0 shut … 1 all the way), the slide it is on if any, and
+  // its element in the overlay. A drawer opened by a click slides all the way out; one dragged by its handle follows the
+  // pointer (DRAG) and stays where it is let go (LEFT). A drawer that is not open slides back in and is dropped once shut.
+  const OUT = new Map();
+  let LEFT = { id: '', p: 1 }, DRAG = null, RAF = 0, SWALLOW = false;
+  const still = matchMedia('(prefers-reduced-motion: reduce)');
+  const easeOut = (k) => 1 - (1 - k) ** 3, easeIn = (k) => k * k;
+  // let go less than this far out, a drawer goes back in; moving faster than FLICK px/ms, it goes all the way out or in
+  const LEAST = 0.25, FLICK = 0.4;
+  const openId = (v = view()) => { const id = v === 'card' ? D.byName[S.r].cat : v === 'drawer' ? S.c : ''; return D.order.includes(id) ? id : ''; };
+  const place = (id, o) => { if (o.el?.isConnected) Draw.setPull(o.el, CAB.L, D.order.indexOf(id), o.p); };
+  // slide a drawer to `to`: out easing off like a drawer on runners, in gathering speed as if pushed shut
+  function slide(id, to, ease) {
+    const o = OUT.get(id);
+    if (o.to === to) return;
+    if (still.matches) { Object.assign(o, { p: to, to, t0: null }); place(id, o); return; }
+    ease ||= to > o.p ? easeOut : easeIn;
+    Object.assign(o, { from: o.p, to, ease, t0: performance.now(), dur: (to > o.p ? 300 : 240) * Math.abs(to - o.p) + 60 });
+    RAF ||= requestAnimationFrame(step);
+  }
+  function step(now) {
+    RAF = 0;
+    for (const [id, o] of OUT) {
+      if (o.t0 == null) continue;
+      const k = Math.min(1, Math.max(0, (now - o.t0) / o.dur));
+      o.p = o.from + (o.to - o.from) * o.ease(k);
+      if (k < 1) RAF ||= requestAnimationFrame(step); else o.t0 = null;
+      place(id, o);
+    }
+    tidy();
+  }
+  // drop the drawers that have finished going back in, and show the closed ones in the cabinet again
+  function tidy() {
+    const open = openId();
+    for (const [id, o] of OUT) {
+      if (o.p > 0 || o.t0 != null || id === open || DRAG?.id === id) continue;
+      OUT.delete(id);
+      o.el?.remove();
+      [...document.querySelectorAll('#cabinet > .drawer')].find((g) => g.dataset.cat === id)?.classList.remove('is-open');
+    }
+  }
+  function grab(e) {
+    const g = e.target.closest('.grip');
+    if (!g || !e.isPrimary || e.button || DRAG?.moved) return;
+    e.preventDefault(); // no text selection while dragging
+    DRAG = { id: g.closest('[data-cat]').dataset.cat, pid: e.pointerId, y0: e.clientY, moved: false, track: [] };
+  }
+  function drag(e) {
+    const d = DRAG;
+    if (!d || e.pointerId !== d.pid) return;
+    const cab = $('#cabinet');
+    // it only becomes a drag once the pointer has moved a little up or down; until then it is a click
+    if (!d.moved) {
+      if (Math.abs(e.clientY - d.y0) < 4) return;
+      d.moved = true;
+      try { cab.setPointerCapture(e.pointerId); } catch {}
+      document.body.classList.add('dragging');
+      if (!OUT.has(d.id)) { OUT.set(d.id, { p: 0 }); drawOverlay(view()); }
+      const o = OUT.get(d.id);
+      Object.assign(o, { t0: null, to: null });
+      d.p0 = o.p;
+      d.per = 1 / (Draw.reach(CAB.L) * cab.getScreenCTM().d);
+    }
+    const o = OUT.get(d.id);
+    o.p = Math.min(1, Math.max(0, d.p0 + (e.clientY - d.y0) * d.per));
+    place(d.id, o);
+    d.track.push([e.timeStamp, e.clientY]);
+  }
+  function release(e) {
+    const d = DRAG;
+    if (!d || e.pointerId !== d.pid) return;
+    DRAG = null;
+    if (!d.moved) return; // a click: the click handler opens or closes the drawer
+    document.body.classList.remove('dragging');
+    SWALLOW = true;
+    setTimeout(() => { SWALLOW = false; });
+    // its speed over its last 80 ms of moving, in px/ms, down positive; none if it was held still before being let go
+    const n = d.track.length, [t1, y1] = d.track[n - 1], [t0, y0] = d.track[Math.max(0, Math.min(n - 2, d.track.findIndex(([t]) => t1 - t <= 80)))];
+    const v = e.type === 'pointerup' && e.timeStamp - t1 < 50 && t1 > t0 ? (y1 - y0) / (t1 - t0) : 0;
+    const o = OUT.get(d.id);
+    let to = v > FLICK ? 1 : v < -FLICK ? 0 : o.p;
+    if (to < LEAST) to = 0;
+    const wasOpen = d.id === openId();
+    LEFT = to ? { id: d.id, p: to } : { id: '', p: 1 };
+    slide(d.id, to, easeOut);
+    if (to && !wasOpen) go({ c: d.id, t: '', s: '', q: '', r: '' });
+    else if (!to && wasOpen) go({ c: '', t: '', s: '', q: '', r: '' });
   }
 
   /* ---------- cards ---------- */
@@ -323,7 +419,16 @@
       const isOpen = (view() === 'drawer' && S.c === id) || (view() === 'card' && D.byName[S.r].cat === id);
       go({ c: isOpen ? '' : id, t: '', s: '', q: '', r: '' });
     };
-    cab.addEventListener('click', (e) => activate(e.target));
+    cab.addEventListener('click', (e) => { if (!SWALLOW) activate(e.target); });
+    // or drag a drawer out (or back in) by its handle
+    cab.addEventListener('pointerdown', grab);
+    addEventListener('pointermove', drag);
+    addEventListener('pointerup', release);
+    addEventListener('pointercancel', release);
+    // (a touch's implicit capture by the handle moving to the cabinet doesn't count)
+    cab.addEventListener('lostpointercapture', (e) => { if (e.target === cab) release(e); });
+    // on a touch screen, dragging a handle moves the drawer, not the page
+    cab.addEventListener('touchmove', (e) => { if (DRAG) e.preventDefault(); }, { passive: false });
     cab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e.target); } });
     // a plain mouse wheel over the tag tabs scrolls them sideways (trackpads scroll sideways already)
     $('#panel').addEventListener('wheel', (e) => {

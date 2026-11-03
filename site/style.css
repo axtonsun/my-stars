@@ -58,6 +58,9 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 .drawer:focus-visible .ring { opacity: 1; }
 .drawer.pulled:focus-visible { filter: drop-shadow(0 0 2px var(--red)); }
 .drawer.is-open { visibility: hidden; }
+/* the handle: grab it to drag the drawer out or back in (app.js) */
+.grip { fill: #fff; opacity: 0; cursor: grab; touch-action: none; }
+body.dragging, body.dragging * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 /* the guide tabs in a pulled drawer: each picks its tag, like the tag tabs in the panel */
 .gtab { cursor: pointer; outline: none; }
 .gtab .hit { fill: #fff; opacity: 0; }
