@@ -86,16 +86,21 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
   border: 2.4px solid #4c4842; border-radius: 0 0 22px 22px; box-shadow: none;
 }
 
-/* guide cards: one tab per tag, sticking up above the cards.
-   Tabs that don't fit wrap to another row. Each row is 28px of tabs plus an 8px guide-coloured
-   strip under it (the bottom border for the last row, the background gradient for the others),
-   so the rows read as guide cards standing one behind another. */
+/* guide cards: one tab per tag, sticking up above the cards. The tabs stay on one row; when they
+   don't fit, the row scrolls sideways on a thin rail. The guide strip and its ink edge are drawn
+   in the bottom padding, placed from the top (14px padding + 28px tabs), so the scrollbar sits
+   under them instead of between the tabs and the strip. The scrollbar is styled so it stays
+   visible, also on macOS. */
 .guides {
-  position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px 6px; margin: 0 -14px 14px; padding: 14px 14px 0;
-  background: repeating-linear-gradient(transparent 0 28px, var(--guide) 28px 35px, rgba(42, 37, 34, .55) 35px 36px) left bottom / 100% calc(100% - 14px) no-repeat, var(--tray) var(--noise);
-  border-bottom: 8px solid var(--guide); box-shadow: 0 1px 0 var(--ink);
+  position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; margin: 0 -14px 14px; padding: 14px 14px 9px;
+  background: linear-gradient(var(--guide) 0 8px, var(--ink) 8px) 0 42px / 100% 9px no-repeat border-box, var(--tray) var(--noise);
+  scrollbar-width: auto; scrollbar-color: auto; /* let Chrome use the ::-webkit-scrollbar styles below */
 }
-.guides a { position: relative; z-index: 0; flex: none; max-width: 100%; height: 28px; padding: 5px 16px 3px; font-size: 13px; line-height: 20px; color: var(--body); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guides::-webkit-scrollbar { height: 6px; }
+.guides::-webkit-scrollbar-track { margin: 0 14px; background: rgba(169, 123, 76, .2); border-radius: 3px; }
+.guides::-webkit-scrollbar-thumb { background: var(--wood-deep); border-radius: 3px; }
+@supports not selector(::-webkit-scrollbar) { .guides { scrollbar-width: thin; scrollbar-color: var(--wood-deep) transparent; } }
+.guides a { position: relative; z-index: 0; flex: none; height: 28px; padding: 5px 16px 3px; font-size: 13px; line-height: 20px; color: var(--body); text-decoration: none; white-space: nowrap; }
 .guides a::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--guide); border: .9px solid var(--ink); border-bottom: 0; transform: perspective(26px) rotateX(5deg); transform-origin: bottom; }
 .guides a b { font-weight: 400; font-family: var(--latin); }
 .guides a:hover { color: var(--ink); }
