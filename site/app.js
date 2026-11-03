@@ -209,7 +209,8 @@
     const sorter = `<span class="sort" role="group" aria-label="${t.sortLabel}">${SORTS.map((k) => `<a href="${href({ s: k === 'stars' ? '' : k })}"${k === sort ? ' aria-current="true"' : ''}>${t.sorts[k]}${k === sort ? ' ↓' : ''}</a>`).join('')}</span>`;
     const guide = `<nav class="guides" aria-label="${t.filterLabel}">${[['', all.length], ...tabs].map(([x, n]) => `<a href="${href({ t: x })}"${x === S.t ? ' aria-current="true"' : ''}>${esc(x ? tag(x) : t.all)} <b>${n}</b></a>`).join('')}</nav>`;
     const note = S.t ? `<p class="hint">${t.tagHint(esc(tag(S.t)), list.length, all.length, href({ t: '' }))}</p>` : '';
-    return head(t.drawerKicker, esc(cname(c)), sorter) + `<p class="desc">${esc(cdesc(c))}</p><div class="tray">${guide}${cards(list)}</div>${note}`;
+    // the hint sits in the tray under the cards, so picking a tag doesn't make the tray shorter
+    return head(t.drawerKicker, esc(cname(c)), sorter) + `<p class="desc">${esc(cdesc(c))}</p><div class="tray">${guide}${cards(list)}${note}</div>`;
   }
 
   function search() {

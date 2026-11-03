@@ -71,7 +71,7 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 .sort { display: flex; gap: 16px; font-size: 14px; }
 .sort a { color: var(--faint); text-decoration: none; }
 .sort a[aria-current] { color: var(--red); border-bottom: 1px solid var(--red); }
-.hint { margin: 10px 2px 0; font-size: 13.5px; color: var(--sub); }
+.hint { margin: 16px 2px 0; font-size: 13.5px; color: var(--body); }
 
 /* the open drawer's tray */
 .tray {
