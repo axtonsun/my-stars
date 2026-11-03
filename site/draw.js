@@ -138,10 +138,12 @@ window.Draw = (() => {
 
   // A drawer pulled straight out towards a viewer standing a little above it: the front comes down and grows a little,
   // and between it and the cabinet you look into the drawer. Its cards (one line each, `d.count` of them) stand at the
-  // front, held up by a block; behind that is the empty floor with the rod the cards are threaded on. `guides` guide cards
-  // are spread through the cards, their tabs stepping left to right like the tag tabs in the panel; tab `active` is lit.
-  function pulled(L, i, d, guides = 0, active = -1) {
-    const [x, y] = L.cells[i], { dw, dh } = L;
+  // front, held up by a block; behind that is the empty floor with the rod the cards are threaded on. A guide card for
+  // each of `tabs` ({ tag, label }) is spread through the cards, their tabs stepping left to right like the tag tabs in
+  // the panel; tab `active` is lit. Each tab is a button of its own, laid over the drawer so a click on it picks that
+  // tag instead of closing the drawer.
+  function pulled(L, i, d, tabs = [], active = -1) {
+    const [x, y] = L.cells[i], { dw, dh } = L, guides = tabs.length;
     const fw = dw * SC, fh = dh * SC, fx = x + dw / 2 - fw / 2, fy = y + dh * PULL - (fh - dh) / 2;
     seed(d.id + ':pulled');
     let s = `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}" fill="#24180f"/>`;
@@ -184,12 +186,16 @@ window.Draw = (() => {
 
     // the cards: faces showing between their top edges; a guide card's tab pokes up above the rest
     if (items.length) s += `<path d="${quad(tr, 1, wi)}" fill="#efe4cb"/>`;
-    const tabW = Math.min(0.2, 0.96 / Math.max(guides, 1));
+    const tabW = Math.min(0.2, 0.96 / Math.max(guides, 1)), btns = [];
     for (let m = items.length - 1; m >= 0; m--) {
       const z = zOf(m), t = T(z), yy = Y(t), xl = Lx(t, wi) + 1, xr = Rx(t, wi) - 1, k = items[m];
       if (k >= 0) {
         const tw = (xr - xl) * tabW, th = 4 + 6 * z, tx = xl + (xr - xl - tw) * (guides > 1 ? k / (guides - 1) : 0.5);
-        s += `<path d="M${f(tx)} ${f(yy)}L${f(tx + 2)} ${f(yy - th)}L${f(tx + tw - 2)} ${f(yy - th)}L${f(tx + tw)} ${f(yy)}Z" fill="${k === active ? '#e9a99b' : '#f3e2b8'}" stroke="${INK}" stroke-width=".7"/>`;
+        const tab = `M${f(tx)} ${f(yy)}L${f(tx + 2)} ${f(yy - th)}L${f(tx + tw - 2)} ${f(yy - th)}L${f(tx + tw)} ${f(yy)}Z`, { tag, label } = tabs[k];
+        s += `<path d="${tab}" fill="${k === active ? '#e9a99b' : '#f3e2b8'}" stroke="${INK}" stroke-width=".7"/>`;
+        // the tabs never overlap side to side, so each button can reach a little above and below its tab
+        btns[k] = `<g class="gtab" data-tag="${esc(tag)}" role="button" tabindex="0" aria-pressed="${k === active}" aria-label="${esc(label)}"><title>${esc(label)}</title>` +
+          `<rect class="hit" x="${f(tx)}" y="${f(yy - th - 5)}" width="${f(tw)}" height="${f(th + 9)}"/><path class="lit" d="${tab}"/></g>`;
       }
       s += `<line x1="${f(xl)}" y1="${f(yy)}" x2="${f(xr)}" y2="${f(yy)}" stroke="${k >= 0 ? '#6f5b42' : '#8a7458'}" stroke-width="${f(0.5 + t * 0.9)}" opacity="${(0.45 + t * 0.45).toFixed(2)}"/>`;
       if (m % 2 === 0 || dz > 0.03) s += `<line x1="${f(xl)}" y1="${f(yy + 0.6 + t * 0.6)}" x2="${f(xr)}" y2="${f(yy + 0.6 + t * 0.6)}" stroke="#fffaf0" stroke-width="${f(0.5 + t * 0.7)}" opacity=".9"/>`;
@@ -203,7 +209,7 @@ window.Draw = (() => {
     s += `<rect x="${f(fx + 4)}" y="${f(fy + fh - 6)}" width="${f(fw - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(fx + 10)}" y="${f(fy + fh)}" width="${f(fw - 20)}" height="7" fill="#1e140c" opacity=".16"/>`;
     s += `<rect x="${f(fx)}" y="${f(fy - 5)}" width="${f(fw)}" height="6" fill="#ead2a8"/>` + box(fx, fy - 5, fw, 6, { w: 0.9, once: true });
     s += `<g transform="translate(${f(fx)} ${f(fy)}) scale(${SC}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, dw, dh, d, L.lp) + '</g>';
-    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>`;
+    return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>` + btns.join('');
   }
 
   // a red paper flag sticking out of a drawer: how many cards match the search

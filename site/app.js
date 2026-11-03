@@ -162,12 +162,15 @@
     }
     const i = D.order.indexOf(open);
     if (i >= 0) {
-      const tags = guides(open).map(([x]) => x);
-      s += Draw.pulled(L, i, drawerOf(open), tags.length, S.t && S.c === open ? tags.indexOf(S.t) : -1);
+      const tabs = guides(open).map(([x, n]) => ({ tag: x, label: T().guideCard(tag(x), n) }));
+      s += Draw.pulled(L, i, drawerOf(open), tabs, S.t && S.c === open ? tabs.findIndex((g) => g.tag === S.t) : -1);
     }
     const waiting = D.cats[INBOX].count;
     if (waiting) s += Draw.note(L, T().note(waiting));
+    // a guide tab picked from the keyboard keeps the focus when the overlay is redrawn
+    const a = document.activeElement, keep = a?.matches?.('#overlay .gtab:focus-visible') ? a.dataset.tag : null;
     $('#overlay').innerHTML = s;
+    if (keep !== null) [...document.querySelectorAll('#overlay .gtab')].find((g) => g.dataset.tag === keep)?.focus();
   }
 
   /* ---------- cards ---------- */
@@ -307,9 +310,15 @@
   function bind() {
     const cab = $('#cabinet');
     const activate = (el) => {
-      const g = el.closest('[data-cat], [data-nav]');
+      const g = el.closest('[data-tag], [data-cat], [data-nav]');
       if (!g) return;
       if (g.dataset.nav === 'inbox') return go({ c: INBOX, t: '', s: '', q: '', r: '' });
+      // a guide tab in the pulled drawer works like the tag tab in the panel; picking the lit one again goes back to All
+      if (g.dataset.tag !== undefined) {
+        const x = g.dataset.tag;
+        if (view() === 'card') return go({ c: D.byName[S.r].cat, t: x, q: '', r: '' });
+        return go({ t: x === S.t ? '' : x });
+      }
       const id = g.dataset.cat;
       const isOpen = (view() === 'drawer' && S.c === id) || (view() === 'card' && D.byName[S.r].cat === id);
       go({ c: isOpen ? '' : id, t: '', s: '', q: '', r: '' });

@@ -58,6 +58,12 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 .drawer:focus-visible .ring { opacity: 1; }
 .drawer.pulled:focus-visible { filter: drop-shadow(0 0 2px var(--red)); }
 .drawer.is-open { visibility: hidden; }
+/* the guide tabs in a pulled drawer: each picks its tag, like the tag tabs in the panel */
+.gtab { cursor: pointer; outline: none; }
+.gtab .hit { fill: #fff; opacity: 0; }
+.gtab .lit { fill: #fff; fill-opacity: 0; stroke: var(--red); stroke-width: 0; transition: fill-opacity .15s; }
+.gtab:hover .lit { fill-opacity: .55; }
+.gtab:focus-visible .lit { stroke-width: 1.6; }
 .note { cursor: pointer; }
 
 .panel { height: var(--cab-h); min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding: 20px 10px 10px; }
