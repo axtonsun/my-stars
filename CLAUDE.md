@@ -3,8 +3,9 @@
 Static site that shows the owner's GitHub stars grouped by purpose. Deployed to GitHub Pages by `.github/workflows/sync-and-deploy.yml` (daily cron, on push to `main`, and manual dispatch).
 
 - `data/stars.json`: written by `scripts/sync_stars.py` in CI. Never edit by hand. CI only commits it when stars are added or removed.
-- `data/classification.json`: hand-maintained. `categories` (id → icon/name/desc), `groups` (sidebar sections, each lists category ids), and `repos` (full_name → `cat`, `tags`, `summary`).
-- `site/`: vanilla HTML/CSS/JS with no build step and no external resources (the owner is in China, so no CDNs or Google Fonts). It reads both JSON files at runtime. A starred repo with no entry in `classification.json` shows up under the built-in `inbox` category (「新收藏 · 待分类」).
+- `data/classification.json`: hand-maintained. `categories` (id → `glyph`/`name`/`desc`; `glyph` is the one character used in call numbers like 研·02), `groups` (drawer order, each lists category ids), and `repos` (full_name → `cat`, `tags`, `summary`).
+- `site/`: vanilla HTML/CSS/JS with no build step and no external resources (the owner is in China, so no CDNs or Google Fonts; fonts are self-hosted in `site/fonts/`). It reads both JSON files at runtime. The UI is a card-catalogue cabinet: one drawer per category, one card per repo. `draw.js` draws the cabinet as hand-drawn SVG, `app.js` handles state (kept in the URL hash: `c` drawer, `t` tag, `s` sort, `q` search, `r` repo). A starred repo with no entry in `classification.json` goes into the built-in `inbox` (「待归档」).
+- The design explorations (other directions, mockups) live on the `design-explorations` branch, not on `main`.
 
 The owner writes in Chinese. Write summaries and tags in Simplified Chinese.
 

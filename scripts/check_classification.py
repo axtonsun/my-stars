@@ -45,7 +45,7 @@ def main():
         if n in starred:
             counts[e["cat"]] = counts.get(e["cat"], 0) + 1
     for c, meta in cats.items():
-        print(f"  {counts.get(c, 0):>3}  {meta['icon']} {meta['name']}")
+        print(f"  {counts.get(c, 0):>3}  {meta['glyph']} {meta['name']}")
 
     sys.exit(1 if (missing or stale or bad_cat or ungrouped) else 0)
 

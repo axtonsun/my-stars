@@ -1,333 +1,271 @@
 'use strict';
 (() => {
+  const { esc, hash } = Draw;
   const INBOX = 'inbox';
-  const LANG_COLORS = {
-    Python: '#3572A5', 'C++': '#f34b7d', C: '#555555', 'C#': '#178600', TypeScript: '#3178c6',
-    JavaScript: '#f1e05a', HTML: '#e34c26', CSS: '#563d7c', SCSS: '#c6538c', Go: '#00ADD8',
-    Rust: '#dea584', 'Jupyter Notebook': '#DA5B0B', Shell: '#89e051', TeX: '#3D6117', Java: '#b07219',
-    'Objective-C': '#438eff', Markdown: '#083fa1', PostScript: '#da291c', Batchfile: '#C1F12E',
-    Swift: '#F05138', Kotlin: '#A97BFF', Ruby: '#701516', PHP: '#4F5D95', Vue: '#41b883',
-    Dart: '#00B4AB', Lua: '#000080', Dockerfile: '#384d54', Svelte: '#ff3e00', Zig: '#ec915c',
+  // one coloured pencil per drawer; a new category falls back to the spare pencils
+  const COLOR = {
+    agent: '#9fc6dd', design: '#8fa9cf', content: '#a9d4c4', 'research-ai': '#c3b1df', academia: '#b88fb3',
+    llm: '#efcd76', ml: '#f2b98f', coding: '#c98a6a', career: '#d3a875', sketch: '#9cc27f', graph: '#b7c79a',
+    fraud: '#df8797', tools: '#f0a9b7', proxy: '#b9c3c9', finance: '#c8a06e', life: '#f2b3be',
   };
-  const SORTS = {
-    starred: ['最近收藏', (a, b) => (b.starred_at || '').localeCompare(a.starred_at || '')],
-    stars: ['Star 最多', (a, b) => b.stars - a.stars],
-    pushed: ['最近更新', (a, b) => (b.pushed_at || '').localeCompare(a.pushed_at || '')],
-    name: ['名称 A–Z', (a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })],
-  };
-
-  // view: 'home' (overview) | 'all' | 'cat'
-  const state = { view: 'home', cat: '', q: '', tag: '', lang: '', sort: 'starred' };
-  let D = null;
+  const SPARE = ['#a9d4c4', '#efcd76', '#c3b1df', '#9cc27f', '#f2b98f', '#9fc6dd'];
+  const SORTS = { stars: 'Star', starred: '收藏时间', pushed: '最近更新' };
+  const CN = '〇一二三四五六七八九';
+  const NOW = Date.now();
 
   const $ = (s) => document.querySelector(s);
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const days = (iso) => (NOW - new Date(iso).getTime()) / 864e5;
   const kfmt = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k' : String(n));
-  const day = (iso) => (iso ? iso.slice(0, 10) : '');
-  const daysSince = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
+  const dot = (iso) => (iso || '').slice(0, 10).replaceAll('-', '·');
   function ago(iso) {
-    if (!iso) return '';
-    const d = daysSince(iso);
+    const d = days(iso);
     if (d < 1) return '今天';
     if (d < 30) return `${Math.floor(d)} 天前`;
     if (d < 365) return `${Math.floor(d / 30)} 个月前`;
     return `${Math.floor(d / 365)} 年前`;
   }
+  const cnNum = (n) => (n < 10 ? CN[n] : n === 10 ? '十' : n < 20 ? '十' + CN[n - 10] : CN[Math.floor(n / 10)] + '十' + (n % 10 ? CN[n % 10] : ''));
+  function cnDate(iso) {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)).split('-').map(Number);
+    return `${[...String(p[0])].map((c) => CN[c]).join('')}年${cnNum(p[1])}月${cnNum(p[2])}日`;
+  }
+
+  let D = null;
+  const S = { c: '', t: '', s: '', q: '', r: '' };
 
   /* ---------- data ---------- */
   async function load() {
-    const get = (p) => fetch(p, { cache: 'no-cache' }).then((r) => {
-      if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`);
-      return r.json();
-    });
+    const get = (p) => fetch(p, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`); return r.json(); });
     const [stars, cls] = await Promise.all([get('data/stars.json'), get('data/classification.json')]);
-    const cats = {
-      ...cls.categories,
-      [INBOX]: { icon: '🆕', name: '新收藏 · 待分类', desc: '最近新 Star、还没整理的仓库，暂时用 GitHub topics 当标签' },
-    };
-    const repos = stars.repos.map((r) => {
-      const c = cls.repos[r.full_name] || {};
-      const cat = c.cat && c.cat !== INBOX && cats[c.cat] ? c.cat : INBOX;
-      const tags = c.tags && c.tags.length ? c.tags : r.topics.slice(0, 4);
-      const summary = c.summary || '';
-      const search = [r.full_name, r.description, summary, tags.join(' '), r.topics.join(' '), r.language, cats[cat].name]
-        .join(' ').toLowerCase();
-      return { ...r, cat, tags, summary, search };
+    const order = cls.groups.flatMap((g) => g.cats).filter((id) => cls.categories[id]);
+    for (const id of Object.keys(cls.categories)) if (!order.includes(id)) order.push(id);
+    const cats = {};
+    order.forEach((id, i) => {
+      const c = cls.categories[id];
+      cats[id] = { id, name: c.name, desc: c.desc || '', glyph: c.glyph || [...c.name].find((ch) => ch.charCodeAt(0) > 255) || c.name[0], color: COLOR[id] || SPARE[i % SPARE.length] };
     });
-    D = { user: stars.user, synced: stars.synced_at, repos, cats, groups: cls.groups };
+    cats[INBOX] = { id: INBOX, name: '待归档', desc: '还没放进抽屉的新卡片', glyph: '新', color: '#e9a99b' };
+    const repos = stars.repos.map((r) => {
+      const c = cls.repos[r.full_name];
+      const cat = c && cats[c.cat] && c.cat !== INBOX ? c.cat : INBOX;
+      const tags = c?.tags?.length ? c.tags : r.topics.slice(0, 4);
+      const summary = c?.summary || r.description || '（没有简介）';
+      const hay = [r.full_name, r.description, summary, tags.join(' '), r.topics.join(' '), r.language, cats[cat].name].join(' ').toLowerCase();
+      const seen = [r.name, summary, tags.join(' ')].join(' ').toLowerCase();
+      return { ...r, cat, tags, summary, hay, seen };
+    });
+    for (const id of Object.keys(cats)) {
+      const list = repos.filter((r) => r.cat === id).sort((a, b) => b.stars - a.stars);
+      list.forEach((r, k) => { r.no = `${cats[id].glyph}·${String(k + 1).padStart(2, '0')}`; });
+      cats[id].count = list.length;
+    }
+    D = { user: stars.user, synced: stars.synced_at, repos, cats, order, byName: Object.fromEntries(repos.map((r) => [r.full_name, r])) };
   }
-
-  const terms = () => state.q.toLowerCase().split(/\s+/).filter(Boolean);
-  const filtering = () => Boolean(state.q.trim() || state.tag || state.lang);
-  function filterRepos({ ignoreCat = false, ignoreLang = false } = {}) {
-    const t = terms();
-    return D.repos.filter((r) =>
-      t.every((x) => r.search.includes(x)) &&
-      (!state.tag || r.tags.includes(state.tag)) &&
-      (ignoreLang || !state.lang || r.language === state.lang) &&
-      (ignoreCat || state.view !== 'cat' || r.cat === state.cat));
-  }
-  function highlighter() {
-    const t = terms();
-    if (!t.length) return esc;
-    const re = new RegExp(t.map(escRe).join('|'), 'gi');
-    return (text) => {
-      text = String(text ?? '');
-      let out = '';
-      let last = 0;
-      for (const m of text.matchAll(re)) {
-        if (!m[0]) continue;
-        out += esc(text.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
-        last = m.index + m[0].length;
-      }
-      return out + esc(text.slice(last));
-    };
-  }
+  const inCat = (id) => D.repos.filter((r) => r.cat === id);
+  const terms = () => S.q.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (r, t = terms()) => t.every((x) => r.hay.includes(x));
 
   /* ---------- url hash <-> state ---------- */
-  function writeHash(push) {
-    const p = new URLSearchParams();
-    if (state.view === 'all') p.set('c', 'all');
-    if (state.view === 'cat') p.set('c', state.cat);
-    if (state.q) p.set('q', state.q);
-    if (state.tag) p.set('t', state.tag);
-    if (state.lang) p.set('l', state.lang);
-    if (state.sort !== 'starred') p.set('s', state.sort);
-    const hash = p.toString() ? '#' + p.toString() : location.pathname + location.search;
-    if (push) history.pushState(null, '', hash);
-    else history.replaceState(null, '', hash);
+  function href(patch) {
+    const st = { ...S, ...patch }, p = new URLSearchParams();
+    for (const k of ['c', 't', 's', 'q', 'r']) if (st[k]) p.set(k, st[k]);
+    const h = p.toString();
+    return h ? '#' + h : '#';
   }
   function readHash() {
     const p = new URLSearchParams(location.hash.slice(1));
-    const c = p.get('c') || '';
-    state.q = p.get('q') || '';
-    state.tag = p.get('t') || '';
-    state.lang = p.get('l') || '';
-    state.sort = SORTS[p.get('s')] ? p.get('s') : 'starred';
-    if (D.cats[c]) { state.view = 'cat'; state.cat = c; }
-    else if (c === 'all' || filtering()) { state.view = 'all'; state.cat = ''; }
-    else { state.view = 'home'; state.cat = ''; }
-    $('#q').value = state.q;
+    for (const k of Object.keys(S)) S[k] = p.get(k) || '';
+    if (S.c && !D.cats[S.c]) S.c = '';
+    if (S.r && !D.byName[S.r]) S.r = '';
+    if (!SORTS[S.s]) S.s = '';
+    const q = $('#q');
+    if (document.activeElement !== q) q.value = S.q;
+  }
+  const go = (patch, replace) => {
+    const h = href(patch);
+    if (replace) history.replaceState(null, '', h === '#' ? location.pathname : h); else location.hash = h;
+    if (replace) { readHash(); render(); }
+  };
+  const view = () => (S.r ? 'card' : S.q.trim() ? 'search' : S.c === INBOX ? 'inbox' : S.c ? 'drawer' : 'home');
+
+  /* ---------- the cabinet ---------- */
+  const phone = matchMedia('(max-width: 820px)');
+  let CAB = null;
+  function drawCabinet() {
+    const cols = phone.matches ? 2 : 4;
+    const drawers = D.order.map((id) => D.cats[id]);
+    const { svg, L } = Draw.cabinet(drawers, cols);
+    const el = $('#cabinet');
+    el.setAttribute('viewBox', `0 0 ${L.vw} ${L.vh}`);
+    el.innerHTML = svg + '<g id="overlay"></g>';
+    CAB = { L, cols };
+  }
+  function drawOverlay(v) {
+    const L = CAB.L;
+    let s = '';
+    const open = v === 'card' ? D.byName[S.r].cat : v === 'drawer' ? S.c : '';
+    document.querySelectorAll('#cabinet .drawer').forEach((g) => g.classList.toggle('is-open', g.dataset.cat === open));
+    if (v === 'search') {
+      const hits = {};
+      D.repos.filter((r) => matches(r)).forEach((r) => { hits[r.cat] = (hits[r.cat] || 0) + 1; });
+      D.order.forEach((id, i) => { s += hits[id] ? Draw.flag(L, i, hits[id], id) : Draw.dim(L, i); });
+    }
+    const i = D.order.indexOf(open);
+    if (i >= 0) s += Draw.pulled(L, i, D.cats[open], S.t ? 1 : -1);
+    const waiting = D.cats[INBOX].count;
+    if (waiting) s += Draw.note(L, waiting);
+    $('#overlay').innerHTML = s;
   }
 
-  /* ---------- rendering ---------- */
-  function renderNav() {
-    const pool = filterRepos({ ignoreCat: true });
-    const n = {};
-    pool.forEach((r) => { n[r.cat] = (n[r.cat] || 0) + 1; });
-    const f = filtering();
-    const item = (nav, icon, label, count, active) =>
-      `<button class="nav-item${active ? ' active' : ''}${f && count === 0 ? ' empty' : ''}" data-nav="${esc(nav)}">` +
-      `<span class="ico">${icon}</span><span class="lbl">${esc(label)}</span>` +
-      (count == null ? '' : `<span class="n">${count}</span>`) + '</button>';
-    const catItem = (id) => item('cat:' + id, D.cats[id].icon, D.cats[id].name, n[id] || 0, state.view === 'cat' && state.cat === id);
+  /* ---------- cards ---------- */
+  function highlighter() {
+    const t = terms();
+    if (!t.length) return esc;
+    const re = new RegExp(t.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
+    return (s) => {
+      s = String(s ?? ''); let out = '', last = 0;
+      for (const m of s.matchAll(re)) { if (!m[0]) continue; out += esc(s.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>'; last = m.index + m[0].length; }
+      return out + esc(s.slice(last));
+    };
+  }
+  function card(r, o = {}) {
+    const hl = o.hl || esc, c = D.cats[r.cat], rot = ((hash(r.full_name) % 100) / 100 - 0.5).toFixed(2);
+    return `<li style="--rot:${rot}deg"><a class="card" href="${href({ r: r.full_name })}">
+      <span class="row1"><span class="no">${esc(r.no)}</span><span class="nm">${hl(r.name)}</span><span class="st">★ ${kfmt(r.stars)}</span>${o.chip ? `<span class="chip" style="--c:${c.color}">${esc(c.name.split(' & ')[0])}</span>` : ''}</span>
+      <span class="sm">${hl(r.summary)}</span>
+      <span class="ft">${hl(r.tags.join(' · '))}<i>${esc(r.owner)} · ${esc(r.language || '未标注')} · 收藏于 ${dot(r.starred_at)}</i></span>
+      ${r.cat === INBOX ? '<span class="new">新</span>' : ''}
+    </a></li>`;
+  }
+  const cards = (list, o) => `<ol class="cards">${list.map((r) => card(r, o)).join('')}</ol>`;
+  const sortBy = (k) => ({
+    stars: (a, b) => b.stars - a.stars,
+    starred: (a, b) => (b.starred_at || '').localeCompare(a.starred_at || ''),
+    pushed: (a, b) => (b.pushed_at || '').localeCompare(a.pushed_at || ''),
+  }[k]);
+  const back = (label) => `<a class="back" href="${href({ c: '', t: '', s: '', q: '', r: '' })}">← ${label}</a>`;
+  const head = (kicker, title, aside = '') => `<header class="ph">${back('柜子')}<p class="kicker">${kicker}</p><div class="ph-row"><h2>${title}</h2>${aside}</div></header>`;
 
-    let h = item('home', '🏠', '概览', null, state.view === 'home');
-    h += item('all', '⭐', '全部仓库', pool.length, state.view === 'all');
-    if (D.repos.some((r) => r.cat === INBOX)) h += catItem(INBOX);
-    for (const g of D.groups) {
-      h += `<div class="nav-group">${esc(g.name)}</div>` + g.cats.filter((id) => D.cats[id]).map(catItem).join('');
-    }
-    const nav = $('#nav');
-    nav.innerHTML = h;
-    if (matchMedia('(max-width: 820px)').matches) {
-      const a = nav.querySelector('.active');
-      if (a) nav.scrollLeft = a.offsetLeft - 16;
-    }
+  function home() {
+    const list = [...D.repos].sort(sortBy('starred')).slice(0, 12);
+    return head('新到的卡片', '最近收进来的', '<span class="aside">点抽屉，拉开那一类</span>') + `<div class="tray">${cards(list, { chip: true })}</div>`;
   }
 
-  function tile(id) {
-    const c = D.cats[id];
-    const list = D.repos.filter((r) => r.cat === id).sort(SORTS.stars[1]);
-    return `<button class="tile" data-nav="cat:${esc(id)}">
-      <span class="tile-top"><span class="ico">${c.icon}</span><span class="n">${list.length} 个</span></span>
-      <h3>${esc(c.name)}</h3><p>${esc(c.desc || '')}</p>
-      <span class="peek">${list.slice(0, 3).map((r) => `<span>${esc(r.name)}</span>`).join('')}</span>
-    </button>`;
-  }
-  function mini(r) {
-    const c = D.cats[r.cat];
-    return `<a class="mini" href="${esc(r.url)}" target="_blank" rel="noopener">
-      <span class="mini-name">${esc(r.full_name)}</span>
-      <span class="mini-sum">${esc(r.summary || r.description || '（没有简介）')}</span>
-      <span class="mini-meta">${c.icon} ${esc(c.name)} · ${day(r.starred_at)} 收藏</span>
-    </a>`;
-  }
-  function renderHome() {
-    const recent = [...D.repos].sort(SORTS.starred[1]).slice(0, 8);
-    const inbox = D.repos.filter((r) => r.cat === INBOX).length;
-    let h = '';
-    if (inbox) {
-      h += `<div class="callout"><span>🆕 有 ${inbox} 个新收藏还没分类</span><button class="btn" data-nav="cat:${INBOX}">去看看</button></div>`;
-    }
-    h += `<section class="home-sec"><h2>最近收藏</h2><div class="recent">${recent.map(mini).join('')}</div></section>`;
-    for (const g of D.groups) {
-      const ids = g.cats.filter((id) => D.cats[id]);
-      h += `<section class="home-sec"><h2>${esc(g.name)}</h2><div class="tiles">${ids.map(tile).join('')}</div></section>`;
-    }
-    return h;
+  function drawer() {
+    const c = D.cats[S.c], all = inCat(S.c), sort = S.s || 'stars';
+    const tc = {};
+    all.forEach((r) => r.tags.forEach((t) => { tc[t] = (tc[t] || 0) + 1; }));
+    let tabs = Object.entries(tc).filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (S.t && !tabs.some(([t]) => t === S.t)) tabs.push([S.t, tc[S.t] || 0]);
+    const list = all.filter((r) => !S.t || r.tags.includes(S.t)).sort(sortBy(sort));
+    const sorter = `<span class="sort" role="group" aria-label="排序">${Object.entries(SORTS).map(([k, l]) => `<a href="${href({ s: k === 'stars' ? '' : k })}"${k === sort ? ' aria-current="true"' : ''}>${l}${k === sort ? ' ↓' : ''}</a>`).join('')}</span>`;
+    const guide = `<nav class="guides" aria-label="按标签筛">${[['', all.length], ...tabs].map(([t, n]) => `<a href="${href({ t })}"${t === S.t ? ' aria-current="true"' : ''}>${esc(t || '全部')} <b>${n}</b></a>`).join('')}</nav>`;
+    const note = S.t ? `<p class="hint">分隔卡「${esc(S.t)}」下有 ${list.length} 张；<a href="${href({ t: '' })}">点「全部」</a>看这个抽屉的 ${all.length} 张</p>` : '';
+    return head('拉开的抽屉', esc(c.name), sorter) + `<p class="desc">${esc(c.desc)}</p><div class="tray">${guide}${cards(list)}</div>${note}`;
   }
 
-  function card(r, hl) {
-    const c = D.cats[r.cat];
-    const badges = [];
-    if (r.archived) badges.push('<span class="badge" title="作者已归档，不再维护">已归档</span>');
-    else if (r.pushed_at && daysSince(r.pushed_at) > 730) {
-      badges.push(`<span class="badge" title="最后提交：${day(r.pushed_at)}">${Math.floor(daysSince(r.pushed_at) / 365)} 年未更新</span>`);
-    }
-    const showDesc = r.description && r.description !== r.summary;
-    const color = LANG_COLORS[r.language] || 'var(--faint)';
-    return `<article class="card">
-      <div class="card-top">
-        <a class="name" href="${esc(r.url)}" target="_blank" rel="noopener"><span class="owner">${hl(r.owner)}/</span><b>${hl(r.name)}</b></a>
-        ${badges.length ? `<span class="badges">${badges.join('')}</span>` : ''}
-      </div>
-      ${r.summary ? `<p class="summary">${hl(r.summary)}</p>` : ''}
-      ${showDesc ? `<p class="desc" title="${esc(r.description)}">${hl(r.description)}</p>` : ''}
-      ${r.tags.length ? `<div class="tags">${r.tags.map((t) => `<button class="tag${t === state.tag ? ' on' : ''}" data-tag="${esc(t)}">${hl(t)}</button>`).join('')}</div>` : ''}
-      <div class="foot">
-        ${r.language ? `<span class="lang"><i class="dot" style="background:${color}"></i>${esc(r.language)}</span>` : ''}
-        <span title="${r.stars.toLocaleString()} stars">★ ${kfmt(r.stars)}</span>
-        ${r.pushed_at ? `<span title="最后提交：${day(r.pushed_at)}">${ago(r.pushed_at)}更新</span>` : ''}
-        ${r.starred_at ? `<span title="你 Star 它的时间">${day(r.starred_at)} 收藏</span>` : ''}
-        ${state.view !== 'cat' ? `<button class="catlink" data-nav="cat:${esc(r.cat)}">${c.icon} ${esc(c.name)}</button>` : ''}
-      </div>
-    </article>`;
+  function search() {
+    const res = D.repos.filter((r) => matches(r)), t = terms();
+    const seen = (r) => (t.some((x) => r.seen.includes(x)) ? 1 : 0);
+    res.sort((a, b) => seen(b) - seen(a) || b.stars - a.stars);
+    const n = new Set(res.map((r) => r.cat)).size;
+    const body = res.length ? cards(res, { chip: true, hl: highlighter() })
+      : `<div class="empty"><p>没有找到「${esc(S.q.trim())}」。</p><p>仓库名、中文简介、英文简介、标签和编程语言都能搜，可以换个说法试试。</p></div>`;
+    return head(`检索「${esc(S.q.trim())}」`, `${res.length} 张卡片`, res.length ? `<span class="aside">来自 ${n} 个抽屉<span class="wide">，小红旗标着每个抽屉里有几张</span></span>` : '') + `<div class="tray">${body}</div>`;
   }
 
-  function renderList() {
-    const list = filterRepos().sort(SORTS[state.sort][1]);
-    let title;
-    let desc = '';
-    if (state.view === 'cat') {
-      const c = D.cats[state.cat];
-      title = `${c.icon} ${esc(c.name)}`;
-      desc = c.desc || '';
-    } else {
-      title = state.q.trim() ? `搜索「${esc(state.q.trim())}」` : '⭐ 全部仓库';
-    }
-
-    const chips = [];
-    if (state.tag) chips.push(`<button class="chip" data-clear="tag" title="去掉这个筛选">标签：${esc(state.tag)} <b>✕</b></button>`);
-    if (state.lang) chips.push(`<button class="chip" data-clear="lang" title="去掉这个筛选">语言：${esc(state.lang)} <b>✕</b></button>`);
-
-    const langCount = {};
-    filterRepos({ ignoreLang: true }).forEach((r) => { if (r.language) langCount[r.language] = (langCount[r.language] || 0) + 1; });
-    if (state.lang && !langCount[state.lang]) langCount[state.lang] = 0;
-    const langs = Object.entries(langCount).sort((a, b) => b[1] - a[1]);
-
-    let body;
-    if (list.length) {
-      const hl = highlighter();
-      body = `<div class="grid">${list.map((r) => card(r, hl)).join('')}</div>`;
-    } else {
-      const elsewhere = state.view === 'cat' ? filterRepos({ ignoreCat: true }).length : 0;
-      body = `<div class="empty-state">
-        <p>${elsewhere ? `这个分类里没有匹配的仓库，其他分类里有 ${elsewhere} 个。` : '没有找到匹配的仓库。'}</p>
-        ${elsewhere ? '<button class="btn" data-nav="all">在全部仓库里看</button>' : '<button class="btn" data-clear="all">清除搜索和筛选</button>'}
-      </div>`;
-    }
-
-    return `<div class="list-head"><h2>${title}</h2>${desc ? `<p>${esc(desc)}</p>` : ''}</div>
-      <div class="toolbar">
-        <div class="info"><span>共 ${list.length} 个</span>${chips.join('')}</div>
-        <div class="controls">
-          <select id="lang" aria-label="按语言筛选">
-            <option value="">所有语言</option>
-            ${langs.map(([l, k]) => `<option value="${esc(l)}"${l === state.lang ? ' selected' : ''}>${esc(l)}（${k}）</option>`).join('')}
-          </select>
-          <select id="sort" aria-label="排序">
-            ${Object.entries(SORTS).map(([k, [label]]) => `<option value="${k}"${k === state.sort ? ' selected' : ''}>${label}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      ${body}`;
+  function inbox() {
+    const list = inCat(INBOX).sort(sortBy('starred'));
+    const intro = `<p class="desc">每天同步时，新 Star 的仓库会先放在这个筐里，先用 GitHub 自带的简介和标签；跟 Claude 说一句「更新分类」，它们就会被归进抽屉。筐里的卡片照样能被检索到。</p>`;
+    return head('还没放进抽屉的新卡片', '待归档', `<span class="aside">${list.length} 张</span>`) + intro +
+      `<div class="tray basket">${list.length ? cards(list) : '<div class="empty"><p>筐是空的，所有卡片都已归档。</p></div>'}</div>`;
   }
 
+  function detail() {
+    const r = D.byName[S.r], c = D.cats[r.cat];
+    const lic = r.license && r.license !== 'NOASSERTION' ? r.license : '未注明许可';
+    const d = days(r.pushed_at);
+    const status = r.archived ? ['已归档', '不再维护', '#7b746b'] : d <= 31 ? ['仍在更新', `${ago(r.pushed_at)}有提交`, '#3f6fa8'] : d <= 365 ? ['一年内有更新', `${ago(r.pushed_at)}有提交`, '#3f6fa8'] : [`${Math.floor(d / 365)} 年没更新`, `最后 ${dot(r.pushed_at)}`, '#7b746b'];
+    const shared = (x) => x.tags.filter((t) => r.tags.includes(t)).length;
+    let rel = D.repos.filter((x) => x !== r && x.cat === r.cat && shared(x)).sort((a, b) => shared(b) - shared(a) || b.stars - a.stars);
+    let relTitle = '同一个抽屉里，主题词相近的';
+    if (!rel.length) { rel = D.repos.filter((x) => x !== r && shared(x)).sort((a, b) => shared(b) - shared(a) || b.stars - a.stars); relTitle = '别的抽屉里，主题词相近的'; }
+    const backTo = S.q ? '回到检索结果' : S.c ? '放回抽屉' : '放回去';
+    const tagLinks = r.tags.map((t) => r.cat === INBOX ? esc(t) : `<a href="${href({ r: '', q: '', c: r.cat, t })}">${esc(t)}</a>`).join(' · ') || '—';
+    return `<header class="ph">${back('柜子')}</header>
+      <article class="catcard" style="--rot:-1.1deg">
+        <div class="cc-top"><div class="cc-no"><small>索书号</small><b>${esc(r.no)}</b></div><h2>${esc(r.name)}</h2><a class="cc-cat" href="${href({ r: '', q: '', c: r.cat, t: '' })}">${esc(c.name)}</a></div>
+        <p class="cc-by"><span>${esc(r.owner)} 著 · ${esc(r.language || '未标注语言')} · ${esc(lic)} · Fork ${r.forks.toLocaleString()}</span><span class="cc-st">★ ${r.stars.toLocaleString()}</span></p>
+        <p class="cc-sum">${esc(r.summary)}</p>
+        ${r.description && r.description !== r.summary ? `<p class="cc-desc">${esc(r.description)}</p>` : ''}
+        <dl><dt>主题词</dt><dd>${tagLinks}</dd>
+          <dt>附　注</dt><dd>最近一次更新：${ago(r.pushed_at)} · 建于 ${(r.created_at || '').slice(0, 4)} 年${r.homepage ? ` · <a href="${esc(r.homepage)}" target="_blank" rel="noopener">主页</a>` : ''}</dd></dl>
+        <div class="stamps"><span class="stamp" style="--c:${status[2]};--r:6deg">${status[0]}<br><b>${status[1]}</b></span><span class="stamp" style="--c:#b8443a;--r:-9deg">收　藏<br><b>${dot(r.starred_at).replaceAll('·', '.')}</b></span></div>
+        <i class="hole"></i>
+      </article>
+      <div class="acts"><a class="btn2" href="${esc(r.url)}" target="_blank" rel="noopener">在 GitHub 打开 →</a><button type="button" class="lnk" data-copy="${esc(r.url)}">复制链接</button><a class="esc" href="${href({ r: '' })}">${backTo} <kbd>Esc</kbd></a></div>
+      ${rel.length ? `<h3 class="rel">${relTitle}</h3>${cards(rel.slice(0, 3))}` : ''}`;
+  }
+
+  /* ---------- render ---------- */
   function render() {
-    renderNav();
-    const main = $('#main');
-    const syncedAt = new Date(D.synced).toLocaleString('zh-CN', { hour12: false });
-    main.innerHTML = (state.view === 'home' ? renderHome() : renderList()) +
-      `<footer class="site-foot">共 ${D.repos.length} 个仓库 · 每天自动从 GitHub 同步，最近一次：${esc(syncedAt)} · ` +
-      `<a href="https://github.com/${esc(D.user)}?tab=stars" target="_blank" rel="noopener">在 GitHub 上查看</a></footer>`;
-  }
-
-  /* ---------- interactions ---------- */
-  function go(nav) {
-    if (nav === 'home') {
-      Object.assign(state, { view: 'home', cat: '', q: '', tag: '', lang: '' });
-      $('#q').value = '';
-    } else if (nav === 'all') {
-      Object.assign(state, { view: 'all', cat: '' });
-    } else if (nav.startsWith('cat:') && D.cats[nav.slice(4)]) {
-      Object.assign(state, { view: 'cat', cat: nav.slice(4) });
-    }
-    writeHash(true);
-    render();
-    window.scrollTo(0, 0);
+    const v = view();
+    document.body.dataset.view = v;
+    drawOverlay(v);
+    const panel = $('#panel');
+    panel.innerHTML = { home, drawer, search, inbox, card: detail }[v]();
+    panel.scrollTop = 0;
+    const tray = panel.querySelector('.tray');
+    if (tray) tray.scrollTop = 0;
+    const c = v === 'drawer' || v === 'inbox' ? D.cats[S.c].name : v === 'card' ? D.byName[S.r].name : v === 'search' ? `检索「${S.q.trim()}」` : '';
+    document.title = (c ? c + ' · ' : '') + `目录柜 · ${D.user} 的 GitHub Stars`;
   }
 
   function bind() {
-    document.addEventListener('click', (e) => {
-      const nav = e.target.closest('[data-nav]');
-      if (nav) { e.preventDefault(); go(nav.dataset.nav); return; }
-      const tag = e.target.closest('[data-tag]');
-      if (tag) {
-        state.tag = state.tag === tag.dataset.tag ? '' : tag.dataset.tag;
-        if (state.view === 'home') state.view = 'all';
-        writeHash(true);
-        render();
-        return;
-      }
-      const clr = e.target.closest('[data-clear]');
-      if (clr) {
-        const k = clr.dataset.clear;
-        if (k === 'all') { state.q = ''; state.tag = ''; state.lang = ''; $('#q').value = ''; } else state[k] = '';
-        writeHash(true);
-        render();
-      }
-    });
-    document.addEventListener('change', (e) => {
-      if (e.target.id === 'lang') state.lang = e.target.value;
-      else if (e.target.id === 'sort') state.sort = e.target.value;
-      else return;
-      writeHash(false);
-      render();
-    });
+    const cab = $('#cabinet');
+    const activate = (el) => {
+      const g = el.closest('[data-cat], [data-nav]');
+      if (!g) return;
+      if (g.dataset.nav === 'inbox') return go({ c: INBOX, t: '', s: '', q: '', r: '' });
+      const id = g.dataset.cat;
+      const isOpen = (view() === 'drawer' && S.c === id) || (view() === 'card' && D.byName[S.r].cat === id);
+      go({ c: isOpen ? '' : id, t: '', s: '', q: '', r: '' });
+    };
+    cab.addEventListener('click', (e) => activate(e.target));
+    cab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e.target); } });
+
     const q = $('#q');
-    q.addEventListener('input', () => {
-      // A new search starts global; the sidebar then shows matches per category,
-      // and clicking one narrows the results down.
-      if (!state.q.trim() && q.value.trim() && state.view !== 'all') Object.assign(state, { view: 'all', cat: '' });
-      state.q = q.value;
-      writeHash(false);
-      render();
-    });
-    q.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); }
-    });
+    q.addEventListener('input', () => go({ q: q.value, r: '' }, true));
+    q.addEventListener('keydown', (e) => { if (e.key === 'Escape') { q.value = ''; go({ q: '' }, true); q.blur(); } });
     document.addEventListener('keydown', (e) => {
-      if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
-        e.preventDefault();
-        q.focus();
-        q.select();
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+      if (e.key === '/') { e.preventDefault(); q.focus(); q.select(); }
+      if (e.key === 'Escape') {
+        if (S.r) go({ r: '' });
+        else if (S.q) { q.value = ''; go({ q: '' }); }
+        else if (S.c || S.t) go({ c: '', t: '', s: '' });
       }
     });
-    window.addEventListener('popstate', () => { readHash(); render(); });
+    document.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-copy]');
+      if (!b) return;
+      try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = '已复制'; } catch { b.textContent = '复制失败'; }
+      setTimeout(() => { b.textContent = '复制链接'; }, 1600);
+    });
+    window.addEventListener('hashchange', () => { readHash(); render(); });
+    phone.addEventListener('change', () => { drawCabinet(); render(); });
+    new ResizeObserver(() => document.documentElement.style.setProperty('--cab-h', cab.getBoundingClientRect().height + 'px')).observe(cab);
   }
 
   load().then(() => {
-    const name = `${D.user} 的 GitHub Stars`;
-    document.title = name;
-    $('#title').textContent = name;
-    $('#meta').textContent = `${D.repos.length} 个仓库 · ${Object.keys(D.cats).length - 1} 个分类`;
+    const n = D.order.length, total = D.repos.length;
+    $('#sub').textContent = `${n} 个抽屉，${total} 张卡片；一个抽屉一个分类，抽屉里一个仓库一张卡片`;
+    $('#foot').innerHTML = `${n} 个抽屉 · ${total} 张卡片 · ${cnDate(D.synced)}校对 · 每天自动同步 · <a href="https://github.com/${esc(D.user)}?tab=stars" target="_blank" rel="noopener">在 GitHub 上看全部 Star</a>`;
+    drawCabinet();
     readHash();
     bind();
     render();
   }).catch((err) => {
-    $('#meta').textContent = '加载失败';
-    $('#main').innerHTML = `<div class="empty-state"><p>数据加载失败：${esc(err.message)}</p></div>`;
+    $('#panel').innerHTML = `<div class="empty"><p>卡片没有加载出来：${esc(err.message)}</p><p>刷新一下试试。</p></div>`;
   });
 })();
