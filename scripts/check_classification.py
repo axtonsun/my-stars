@@ -6,7 +6,7 @@ Prints starred repos that have no category yet (they show up under
 any entry pointing at an unknown category, and English text that is missing
 (category name_en / desc_en, repo summary_en, or a Chinese tag with no
 translation in tags_en), and tags that only repeat the language GitHub
-reports for the repo (the site makes language tabs from that itself).
+reports for the repo (the card already shows that language).
 Exits 1 if something needs fixing.
 """
 import json

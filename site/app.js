@@ -66,9 +66,7 @@
       // search both languages, whichever one is showing
       const hay = [r.full_name, r.description, summary, summaryEn, tagText, r.topics.join(' '), r.language, cats[cat].name, cats[cat].name_en].join(' ').toLowerCase();
       const seen = [r.name, summary, summaryEn, tagText].join(' ').toLowerCase();
-      // what the guide cards filter on: the hand-written tags plus the language GitHub reports
-      const facets = new Set(r.language ? [...tags, r.language] : tags);
-      return { ...r, cat, tags, facets, summary, summaryEn, hay, seen };
+      return { ...r, cat, tags, summary, summaryEn, hay, seen };
     });
     for (const id of Object.keys(cats)) {
       const list = repos.filter((r) => r.cat === id).sort((a, b) => b.stars - a.stars);
@@ -78,18 +76,11 @@
     D = { user: stars.user, synced: stars.synced_at, repos, cats, order, tagsEn, byName: Object.fromEntries(repos.map((r) => [r.full_name, r])) };
   }
   const inCat = (id) => D.repos.filter((r) => r.cat === id);
-  // A drawer's guide cards, as [name, count]: the tags at least two of its cards have, then its languages to fill up
-  // to 5, plus the one being filtered on. Tags are hand-written and never name the language a repo is written in;
-  // languages come from GitHub. A language spelled like a tag (C++) shares that tag's guide card and count.
+  // a drawer's guide cards, as [tag, count]: its most used tags, plus the one being filtered on
   function guides(id) {
-    const list = inCat(id), tc = {}, tagN = {};
-    list.forEach((r) => {
-      r.tags.forEach((x) => { tagN[x] = (tagN[x] || 0) + 1; });
-      r.facets.forEach((x) => { tc[x] = (tc[x] || 0) + 1; });
-    });
-    const top = (keep) => Object.entries(tc).filter(keep).sort((a, b) => b[1] - a[1]);
-    // a language every card here shares would only repeat 「全部」
-    const tabs = [...top(([x]) => tagN[x] > 1), ...top(([x, n]) => !(tagN[x] > 1) && n > 1 && n < list.length)].slice(0, 5);
+    const tc = {};
+    inCat(id).forEach((r) => r.tags.forEach((x) => { tc[x] = (tc[x] || 0) + 1; }));
+    const tabs = Object.entries(tc).filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 5);
     if (S.t && S.c === id && !tabs.some(([x]) => x === S.t)) tabs.push([S.t, tc[S.t] || 0]);
     return tabs;
   }
@@ -214,7 +205,7 @@
 
   function drawer() {
     const t = T(), c = D.cats[S.c], all = inCat(S.c), sort = S.s || 'stars', tabs = guides(S.c);
-    const list = all.filter((r) => !S.t || r.facets.has(S.t)).sort(sortBy(sort));
+    const list = all.filter((r) => !S.t || r.tags.includes(S.t)).sort(sortBy(sort));
     const sorter = `<span class="sort" role="group" aria-label="${t.sortLabel}">${SORTS.map((k) => `<a href="${href({ s: k === 'stars' ? '' : k })}"${k === sort ? ' aria-current="true"' : ''}>${t.sorts[k]}${k === sort ? ' ↓' : ''}</a>`).join('')}</span>`;
     const guide = `<nav class="guides" aria-label="${t.filterLabel}">${[['', all.length], ...tabs].map(([x, n]) => `<a href="${href({ t: x })}"${x === S.t ? ' aria-current="true"' : ''}>${esc(x ? tag(x) : t.all)} <b>${n}</b></a>`).join('')}</nav>`;
     const note = S.t ? `<p class="hint">${t.tagHint(esc(tag(S.t)), list.length, all.length, href({ t: '' }))}</p>` : '';
