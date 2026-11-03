@@ -203,13 +203,34 @@
     return head(t.homeKicker, t.homeTitle, `<span class="aside">${t.homeAside}</span>`) + `<div class="tray">${cards(list, { chip: true })}</div>`;
   }
 
-  function drawer() {
-    const t = T(), c = D.cats[S.c], all = inCat(S.c), sort = S.s || 'stars', tabs = guides(S.c);
-    const list = all.filter((r) => !S.t || r.tags.includes(S.t)).sort(sortBy(sort));
+  // the part of a drawer above its tray: kicker and sort links, the drawer's name, its description.
+  // The sort links share the kicker's line so long names keep a line to themselves.
+  function lid(id) {
+    const t = T(), c = D.cats[id], sort = S.s || 'stars';
     const sorter = `<span class="sort" role="group" aria-label="${t.sortLabel}">${SORTS.map((k) => `<a href="${href({ s: k === 'stars' ? '' : k })}"${k === sort ? ' aria-current="true"' : ''}>${t.sorts[k]}${k === sort ? ' ↓' : ''}</a>`).join('')}</span>`;
+    return `<div class="lid"><header class="ph">${back(t.back)}<div class="ph-row"><p class="kicker">${t.drawerKicker}</p>${sorter}</div><h2>${esc(cname(c))}</h2></header><p class="desc">${esc(cdesc(c))}</p></div>`;
+  }
+
+  function drawer() {
+    const t = T(), all = inCat(S.c), tabs = guides(S.c);
+    const list = all.filter((r) => !S.t || r.tags.includes(S.t)).sort(sortBy(S.s || 'stars'));
     const guide = `<nav class="guides" aria-label="${t.filterLabel}">${[['', all.length], ...tabs].map(([x, n]) => `<a href="${href({ t: x })}"${x === S.t ? ' aria-current="true"' : ''}>${esc(x ? tag(x) : t.all)} <b>${n}</b></a>`).join('')}</nav>`;
     const note = S.t ? `<p class="hint">${t.tagHint(esc(tag(S.t)), list.length, all.length, href({ t: '' }))}</p>` : '';
-    return head(t.drawerKicker, esc(cname(c)), sorter) + `<p class="desc">${esc(cdesc(c))}</p><div class="tray">${guide}${cards(list)}</div>${note}`;
+    return lid(S.c) + `<div class="tray">${guide}${cards(list)}</div>${note}`;
+  }
+
+  // Every drawer's tray has the same size and place: the part above it is made as tall as the
+  // tallest drawer's at this width and in this language (style.css reads --lid-h). Phones scroll
+  // the whole page instead, so there it is left alone.
+  function fitLid() {
+    if (!D || view() !== 'drawer' || phone.matches) return;
+    const m = document.createElement('div');
+    m.className = 'measure';
+    m.innerHTML = D.order.map((id) => lid(id)).join('');
+    $('#panel').append(m);
+    const h = Math.max(...[...m.children].map((e) => e.getBoundingClientRect().height));
+    m.remove();
+    document.documentElement.style.setProperty('--lid-h', Math.ceil(h) + 'px');
   }
 
   function search() {
@@ -269,6 +290,7 @@
     drawOverlay(v);
     const panel = $('#panel');
     panel.innerHTML = { home, drawer, search, inbox, card: detail }[v]();
+    fitLid();
     panel.scrollTop = 0;
     const tray = panel.querySelector('.tray');
     if (tray) tray.scrollTop = 0;
@@ -323,7 +345,12 @@
     document.querySelectorAll('.lang [data-lang]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== S.l) setLang(b.dataset.lang); }));
     window.addEventListener('hashchange', () => { readHash(); render(); });
     phone.addEventListener('change', () => { drawCabinet(); render(); });
-    new ResizeObserver(() => document.documentElement.style.setProperty('--cab-h', cab.getBoundingClientRect().height + 'px')).observe(cab);
+    new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--cab-h', cab.getBoundingClientRect().height + 'px');
+      fitLid();
+    }).observe(cab);
+    // text gets wider or narrower as the self-hosted fonts arrive
+    document.fonts?.addEventListener('loadingdone', fitLid);
   }
 
   // header and loading text in the right language before the data arrives
