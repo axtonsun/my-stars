@@ -76,6 +76,14 @@
     D = { user: stars.user, synced: stars.synced_at, repos, cats, order, tagsEn, byName: Object.fromEntries(repos.map((r) => [r.full_name, r])) };
   }
   const inCat = (id) => D.repos.filter((r) => r.cat === id);
+  // a drawer's guide cards, as [tag, count]: its most used tags, plus the one being filtered on
+  function guides(id) {
+    const tc = {};
+    inCat(id).forEach((r) => r.tags.forEach((x) => { tc[x] = (tc[x] || 0) + 1; }));
+    const tabs = Object.entries(tc).filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (S.t && S.c === id && !tabs.some(([x]) => x === S.t)) tabs.push([S.t, tc[S.t] || 0]);
+    return tabs;
+  }
   const terms = () => S.q.toLowerCase().split(/\s+/).filter(Boolean);
   const matches = (r, t = terms()) => t.every((x) => r.hay.includes(x));
 
@@ -152,7 +160,10 @@
       D.order.forEach((id, i) => { s += hits[id] ? Draw.flag(L, i, T().flag(hits[id]), id) : Draw.dim(L, i); });
     }
     const i = D.order.indexOf(open);
-    if (i >= 0) s += Draw.pulled(L, i, drawerOf(open), S.t ? 1 : -1);
+    if (i >= 0) {
+      const tags = guides(open).map(([x]) => x);
+      s += Draw.pulled(L, i, drawerOf(open), tags.length, S.t && S.c === open ? tags.indexOf(S.t) : -1);
+    }
     const waiting = D.cats[INBOX].count;
     if (waiting) s += Draw.note(L, T().note(waiting));
     $('#overlay').innerHTML = s;
@@ -193,11 +204,7 @@
   }
 
   function drawer() {
-    const t = T(), c = D.cats[S.c], all = inCat(S.c), sort = S.s || 'stars';
-    const tc = {};
-    all.forEach((r) => r.tags.forEach((x) => { tc[x] = (tc[x] || 0) + 1; }));
-    let tabs = Object.entries(tc).filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    if (S.t && !tabs.some(([x]) => x === S.t)) tabs.push([S.t, tc[S.t] || 0]);
+    const t = T(), c = D.cats[S.c], all = inCat(S.c), sort = S.s || 'stars', tabs = guides(S.c);
     const list = all.filter((r) => !S.t || r.tags.includes(S.t)).sort(sortBy(sort));
     const sorter = `<span class="sort" role="group" aria-label="${t.sortLabel}">${SORTS.map((k) => `<a href="${href({ s: k === 'stars' ? '' : k })}"${k === sort ? ' aria-current="true"' : ''}>${t.sorts[k]}${k === sort ? ' ↓' : ''}</a>`).join('')}</span>`;
     const guide = `<nav class="guides" aria-label="${t.filterLabel}">${[['', all.length], ...tabs].map(([x, n]) => `<a href="${href({ t: x })}"${x === S.t ? ' aria-current="true"' : ''}>${esc(x ? tag(x) : t.all)} <b>${n}</b></a>`).join('')}</nav>`;

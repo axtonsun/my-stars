@@ -83,6 +83,9 @@ window.Draw = (() => {
 
   /* ---------- the cabinet ---------- */
 
+  // a pulled drawer comes down by PULL of its height and grows by SC; CAP cards make a drawer look full
+  const PULL = 0.33, SC = 1.07, CAP = 36;
+
   // geometry for `n` drawers in `cols` columns
   function layout(n, cols) {
     const phone = cols < 4;
@@ -90,7 +93,9 @@ window.Draw = (() => {
     const dw = (W - 2 * pad - (cols - 1) * gx) / cols, dh = phone ? 128 : 160;
     const X = 16, Y = 40, H = 46 + rows * dh + (rows - 1) * gx;
     const cells = Array.from({ length: n }, (_, i) => [X + pad + (i % cols) * (dw + gx), Y + 30 + Math.floor(i / cols) * (dh + gx)]);
-    return { W, H, X, Y, dw, dh, cells, lp: phone ? 13 : 14, vw: W + 32, vh: Y + H + 14 };
+    // the cabinet stands on feet just tall enough for a pulled bottom drawer to clear the floor
+    const foot = Math.ceil(dh * (PULL + (SC - 1) / 2) - 16 + 6);
+    return { W, H, X, Y, dw, dh, cells, foot, lp: phone ? 13 : 14, vw: W + 32, vh: Y + H + foot + 16 };
   }
 
   function front(x, y, dw, dh, d, lp) {
@@ -115,6 +120,14 @@ window.Draw = (() => {
     s += fillRect(X - 14, Y - 12, W + 28, 22, WOOD_DEEP, { op: 0.9 }) + box(X - 14, Y - 12, W + 28, 22, { w: 1.3 });
     s += `<rect x="${X}" y="${Y + 10}" width="${W}" height="${H - 10}" fill="#b98c5e"/>` + fillRect(X, Y + 10, W, H - 10, TEA, { op: 0.7 }) + box(X, Y + 10, W, H - 10, { w: 1.4 });
     for (let i = 0; i < H / 18; i++) { const yy = Y + 20 + R() * (H - 30); s += line(X + 6, yy, X + W - 6, yy + j(3), { w: 0.5, op: 0.25, color: '#3b2413' }); }
+    // the plinth and two tapered feet, with their shadows on the floor
+    const by = Y + H, ph = 10, fb = by + L.foot, fw = W < 400 ? 22 : 30;
+    s += `<ellipse cx="${X + W / 2}" cy="${fb}" rx="${W / 2 + 6}" ry="3" fill="#3b2a1e" opacity=".1"/>`;
+    for (const x0 of [X + 6, X + W - 6 - fw]) {
+      const leg = [[x0, by + ph], [x0 + fw, by + ph], [x0 + fw - 4, fb], [x0 + 4, fb]];
+      s += `<ellipse cx="${x0 + fw / 2}" cy="${fb}" rx="${fw / 2 + 5}" ry="2.6" fill="#3b2a1e" opacity=".22"/><path d="${shape(leg)}" fill="#9a6d43"/>` + pencil(shape(leg), TEA, { op: 0.8 }) + outline(leg, { w: 1.2 });
+    }
+    s += `<rect x="${X - 6}" y="${by}" width="${W + 12}" height="${ph}" fill="#9a6d43"/>` + fillRect(X - 6, by, W + 12, ph, WOOD_DEEP, { op: 0.9 }) + box(X - 6, by, W + 12, ph, { w: 1.3 });
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
       s += `<g class="drawer" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.label)}">` + front(x, y, dw, dh, d, L.lp) +
@@ -124,25 +137,63 @@ window.Draw = (() => {
   }
 
   // A drawer pulled straight out towards a viewer standing a little above it: the front comes down and grows a little,
-  // and between it and the cabinet you look into the drawer, its side walls and the top edges of the standing cards.
-  function pulled(L, i, d, activeTab) {
+  // and between it and the cabinet you look into the drawer. Its cards (one line each, `d.count` of them) stand at the
+  // front, held up by a block; behind that is the empty floor with the rod the cards are threaded on. `guides` guide cards
+  // are spread through the cards, their tabs stepping left to right like the tag tabs in the panel; tab `active` is lit.
+  function pulled(L, i, d, guides = 0, active = -1) {
     const [x, y] = L.cells[i], { dw, dh } = L;
-    const pull = 0.33, sc = 1.07, fw = dw * sc, fh = dh * sc, fx = x + dw / 2 - fw / 2, fy = y + dh * pull - (fh - dh) / 2;
+    const fw = dw * SC, fh = dh * SC, fx = x + dw / 2 - fw / 2, fy = y + dh * PULL - (fh - dh) / 2;
     seed(d.id + ':pulled');
     let s = `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}" fill="#24180f"/>`;
     const wo = 3, wi = 11, back = y + 2, near = fy - 4;
-    const Lx = (t, k) => x + k + (fx + k * sc - x - k) * t, Rx = (t, k) => x + dw - k + (fx + fw - k * sc - x - dw + k) * t, Y = (t) => back + (near - back) * t;
-    s += `<path d="M${f(Lx(0, wi))} ${back}L${f(Rx(0, wi))} ${back}L${f(Rx(1, wi))} ${f(near)}L${f(Lx(1, wi))} ${f(near)}Z" fill="#efe4cb"/>`;
-    for (let k = 0; k <= 26; k++) {
-      const t = Math.pow(k / 26, 1.6), yy = Y(t), xl = Lx(t, wi) + 1, xr = Rx(t, wi) - 1;
-      s += `<line x1="${f(xl)}" y1="${f(yy)}" x2="${f(xr)}" y2="${f(yy)}" stroke="#8a7458" stroke-width="${f(0.5 + t * 0.9)}" opacity="${(0.45 + t * 0.45).toFixed(2)}"/>`;
-      if (k % 2 === 0) s += `<line x1="${f(xl)}" y1="${f(yy + 0.8 + t)}" x2="${f(xr)}" y2="${f(yy + 0.8 + t)}" stroke="#fffaf0" stroke-width="${f(0.6 + t)}" opacity=".9"/>`;
+    const Lx = (t, k) => x + k + (fx + k * SC - x - k) * t, Rx = (t, k) => x + dw - k + (fx + fw - k * SC - x - dw + k) * t, Y = (t) => back + (near - back) * t;
+    // depth z (0 at the back, 1 at the front) to screen t: the far end is foreshortened
+    const T = (z) => Math.pow(Math.max(0, z), 1.6);
+    const quad = (t0, t1, k, a = 0, b = 1) => {
+      const at = (t, u) => Lx(t, k) + (Rx(t, k) - Lx(t, k)) * u;
+      return `M${f(at(t0, a))} ${f(Y(t0))}L${f(at(t0, b))} ${f(Y(t0))}L${f(at(t1, b))} ${f(Y(t1))}L${f(at(t1, a))} ${f(Y(t1))}Z`;
+    };
+    const mid = (t) => (Lx(t, wi) + Rx(t, wi)) / 2;
+
+    // front to back: guide card k goes in front of card k·n/g; -1 is a plain card
+    const n = d.count || 0, items = [];
+    for (let c = 0, k = 0; c < n || k < guides;) {
+      if (k < guides && k * n <= c * guides) items.push(k++);
+      else { items.push(-1); c++; }
     }
-    // guide cards stand taller: their tabs poke up above the others
-    [[0.32, 0.18], [0.58, 0.52], [0.82, 0.3]].forEach(([t0, pos], k) => {
-      const t = Math.pow(t0, 1.6), yy = Y(t), xl = Lx(t, wi), xr = Rx(t, wi), tw = (xr - xl) * 0.2, th = 5 + 5 * t0, tx = xl + (xr - xl - tw) * pos;
-      s += `<path d="M${f(tx)} ${f(yy)}L${f(tx + 2)} ${f(yy - th)}L${f(tx + tw - 2)} ${f(yy - th)}L${f(tx + tw)} ${f(yy)}Z" fill="${k === activeTab ? '#e9a99b' : '#f3e2b8'}" stroke="${INK}" stroke-width=".7"/>`;
-    });
+    const dz = 1 / Math.max(CAP, items.length + 3), zOf = (m) => 1 - (m + 1) * dz, zLast = 1 - items.length * dz;
+
+    // the floor, with a little grain and the rod down the middle
+    const floor = quad(0, 1, wi);
+    s += `<path d="${floor}" fill="#d6b384"/>` + pencil(floor, WOOD, { op: 0.55, strokes: false });
+    for (let g = 0; g < 4; g++) {
+      const u = 0.12 + g * 0.24 + j(0.06), a = Lx(0, wi) + (Rx(0, wi) - Lx(0, wi)) * u, b = Lx(1, wi) + (Rx(1, wi) - Lx(1, wi)) * u;
+      s += line(a, back, b, near, { w: 0.5, op: 0.22, color: '#5b3d22' });
+    }
+    const tr = T(zLast);
+    s += `<line x1="${f(mid(0))}" y1="${back}" x2="${f(mid(tr))}" y2="${f(Y(tr))}" stroke="#5b4632" stroke-width="${f(1.2 + tr * 0.8)}" stroke-linecap="round"/>` +
+      `<line x1="${f(mid(0) - 0.5)}" y1="${back}" x2="${f(mid(tr) - 0.6)}" y2="${f(Y(tr))}" stroke="#f1dca8" stroke-width=".5" opacity=".8"/>`;
+
+    // the block holding the cards up, just behind the last one
+    const b0 = T(zLast - 2.2 * dz), b1 = T(zLast - 0.2 * dz);
+    if (b1 - b0 > 0.004) {
+      const top = quad(b0, b1, wi, 0.32, 0.68);
+      s += `<path d="${quad(b1, Math.min(1, b1 + (b1 - b0) * 0.6), wi, 0.32, 0.68)}" fill="#3b2a1e" opacity=".25"/><path d="${top}" fill="#9a6d43"/>` +
+        pencil(top, BRASS, { op: 0.7, strokes: false }) + `<path d="${top}" fill="none" stroke="${INK}" stroke-width=".7" stroke-linejoin="round"/>`;
+    }
+
+    // the cards: faces showing between their top edges; a guide card's tab pokes up above the rest
+    if (items.length) s += `<path d="${quad(tr, 1, wi)}" fill="#efe4cb"/>`;
+    const tabW = Math.min(0.2, 0.96 / Math.max(guides, 1));
+    for (let m = items.length - 1; m >= 0; m--) {
+      const z = zOf(m), t = T(z), yy = Y(t), xl = Lx(t, wi) + 1, xr = Rx(t, wi) - 1, k = items[m];
+      if (k >= 0) {
+        const tw = (xr - xl) * tabW, th = 4 + 6 * z, tx = xl + (xr - xl - tw) * (guides > 1 ? k / (guides - 1) : 0.5);
+        s += `<path d="M${f(tx)} ${f(yy)}L${f(tx + 2)} ${f(yy - th)}L${f(tx + tw - 2)} ${f(yy - th)}L${f(tx + tw)} ${f(yy)}Z" fill="${k === active ? '#e9a99b' : '#f3e2b8'}" stroke="${INK}" stroke-width=".7"/>`;
+      }
+      s += `<line x1="${f(xl)}" y1="${f(yy)}" x2="${f(xr)}" y2="${f(yy)}" stroke="${k >= 0 ? '#6f5b42' : '#8a7458'}" stroke-width="${f(0.5 + t * 0.9)}" opacity="${(0.45 + t * 0.45).toFixed(2)}"/>`;
+      if (m % 2 === 0 || dz > 0.03) s += `<line x1="${f(xl)}" y1="${f(yy + 0.6 + t * 0.6)}" x2="${f(xr)}" y2="${f(yy + 0.6 + t * 0.6)}" stroke="#fffaf0" stroke-width="${f(0.5 + t * 0.7)}" opacity=".9"/>`;
+    }
     s += `<rect x="${f(x)}" y="${y}" width="${f(dw)}" height="7" fill="#1a110a" opacity=".55" filter="url(#edge)"/>`;
     for (const side of [0, 1]) {
       const a = side ? (t) => Rx(t, wo) : (t) => Lx(t, wo), b = side ? (t) => Rx(t, wi) : (t) => Lx(t, wi);
@@ -151,7 +202,7 @@ window.Draw = (() => {
     }
     s += `<rect x="${f(fx + 4)}" y="${f(fy + fh - 6)}" width="${f(fw - 8)}" height="20" fill="#1e140c" opacity=".26" filter="url(#edge)"/><rect x="${f(fx + 10)}" y="${f(fy + fh)}" width="${f(fw - 20)}" height="7" fill="#1e140c" opacity=".16"/>`;
     s += `<rect x="${f(fx)}" y="${f(fy - 5)}" width="${f(fw)}" height="6" fill="#ead2a8"/>` + box(fx, fy - 5, fw, 6, { w: 0.9, once: true });
-    s += `<g transform="translate(${f(fx)} ${f(fy)}) scale(${sc}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, dw, dh, d, L.lp) + '</g>';
+    s += `<g transform="translate(${f(fx)} ${f(fy)}) scale(${SC}) translate(${f(-fx)} ${f(-fy)})">` + front(fx, fy, dw, dh, d, L.lp) + '</g>';
     return `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">${s}</g>`;
   }
 
