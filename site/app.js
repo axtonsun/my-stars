@@ -249,6 +249,12 @@
   }
 
   /* ---------- render ---------- */
+  // When the tag tabs get a scrollbar that takes up room (not an overlay one), it stands in for the
+  // guide strip's bottom padding. It comes and goes with the panel width and the fonts loading.
+  const tabBar = new ResizeObserver(([e]) => requestAnimationFrame(() => {
+    const g = e.target;
+    g.classList.toggle('has-bar', g.offsetHeight - g.clientHeight > 2);
+  }));
   function render() {
     if (S.l !== SHOWN) chrome();
     const v = view();
@@ -259,9 +265,11 @@
     panel.scrollTop = 0;
     const tray = panel.querySelector('.tray');
     if (tray) tray.scrollTop = 0;
-    // bring the chosen tag tab into view when the tabs scroll sideways
+    // tag tabs: bring the chosen one into view, and watch for the scrollbar (see tabBar)
     const g = panel.querySelector('.guides'), cur = g && g.querySelector('[aria-current]');
     if (cur) g.scrollLeft = cur.offsetLeft - (g.clientWidth - cur.offsetWidth) / 2;
+    tabBar.disconnect();
+    if (g) tabBar.observe(g, { box: 'border-box' });
     const c = v === 'drawer' || v === 'inbox' ? cname(D.cats[S.c]) : v === 'card' ? D.byName[S.r].name : v === 'search' ? T().searchKicker(S.q.trim()) : '';
     document.title = (c ? c + ' · ' : '') + T().docTitle(D.user);
   }
