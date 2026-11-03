@@ -11,6 +11,7 @@ My GitHub stars, sorted by what they're for, as a searchable website in Chinese 
 The whole site is an old library card catalogue:
 
 - **One drawer per category**: the drawers are arranged in groups. Click one to pull it out, and its cards appear on the right; click it again to close it. You can also drag a drawer by its handle: it stays where you let go, a quick flick sends it all the way out or back in, and a drawer let go less than a quarter of the way out slides shut
+- **Lift the cabinet**: hold its left foot and drag it to the right (or the right foot to the left) and that side comes up, tipping the cabinet over its other foot while the drawers slide to the low side. Let go and it drops back, bounces once, and the drawers rattle in their slots
 - **One card per repo**: each card has a call number (研·02 is the second most-starred card in the AI for Research drawer), a one-line summary and the star count. Hover over it to see its tags, author and language
 - **Guide cards**: in an open drawer, filter by tag (only "Paper Writing", say). Every tag that at least two of the drawer's cards share gets a guide card. The links at the top right sort by stars, date starred or last update
 - **Search**: repo names, Chinese and English summaries, tags and programming languages are all searchable; press `/` to start. Drawers with matches get a small red flag showing how many
