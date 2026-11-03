@@ -262,7 +262,7 @@
     // bring the chosen tag tab into view when the tabs scroll sideways
     const g = panel.querySelector('.guides'), cur = g && g.querySelector('[aria-current]');
     if (cur) g.scrollLeft = cur.offsetLeft - (g.clientWidth - cur.offsetWidth) / 2;
-    const c =v === 'drawer' || v === 'inbox' ? cname(D.cats[S.c]) : v === 'card' ? D.byName[S.r].name : v === 'search' ? T().searchKicker(S.q.trim()) : '';
+    const c = v === 'drawer' || v === 'inbox' ? cname(D.cats[S.c]) : v === 'card' ? D.byName[S.r].name : v === 'search' ? T().searchKicker(S.q.trim()) : '';
     document.title = (c ? c + ' · ' : '') + T().docTitle(D.user);
   }
 
