@@ -279,10 +279,10 @@
   /* ---------- render ---------- */
   // When the tag tabs get a scrollbar that takes up room (not an overlay one), it stands in for the
   // guide strip's bottom padding. It comes and goes with the panel width and the fonts loading.
-  const tabBar = new ResizeObserver(([e]) => requestAnimationFrame(() => {
-    const g = e.target;
-    g.classList.toggle('has-bar', g.offsetHeight - g.clientHeight > 2);
-  }));
+  // render() sets it straight away, so a new tab row never shows a frame with both the padding and
+  // the bar; the observer catches later changes, one frame late so it doesn't resize what it watches.
+  const fitBar = (g) => g.classList.toggle('has-bar', g.offsetHeight - g.clientHeight > 2);
+  const tabBar = new ResizeObserver(([e]) => requestAnimationFrame(() => fitBar(e.target)));
   function render() {
     if (S.l !== SHOWN) chrome();
     const v = view();
@@ -298,7 +298,7 @@
     const g = panel.querySelector('.guides'), cur = g && g.querySelector('[aria-current]');
     if (cur) g.scrollLeft = cur.offsetLeft - (g.clientWidth - cur.offsetWidth) / 2;
     tabBar.disconnect();
-    if (g) tabBar.observe(g, { box: 'border-box' });
+    if (g) { fitBar(g); tabBar.observe(g, { box: 'border-box' }); }
     const c = v === 'drawer' || v === 'inbox' ? cname(D.cats[S.c]) : v === 'card' ? D.byName[S.r].name : v === 'search' ? T().searchKicker(S.q.trim()) : '';
     document.title = (c ? c + ' · ' : '') + T().docTitle(D.user);
   }
