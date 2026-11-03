@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="fonts/lxgw/lxgwwenkai-bold.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body data-view="home">
+<body data-view="loading">
 <header class="top">
   <div class="lang" role="group" aria-label="语言 / Language"><button type="button" data-lang="zh" lang="zh-CN" aria-pressed="true">中文</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div>
   <div class="ttl">
@@ -25,7 +25,8 @@
 </header>
 <main class="layout">
   <div class="cab-col"><svg id="cabinet" role="group" aria-label="目录柜：每个抽屉是一个分类"></svg></div>
-  <section id="panel" class="panel" aria-live="polite"><p class="loading">正在打开柜子……</p></section>
+  <section id="panel" class="panel" aria-live="polite"></section>
+  <div id="loading" class="loading" role="status"><div class="ld-msg"><p>正在打开柜子……</p></div></div>
 </main>
 <footer id="foot" class="foot"></footer>
 <script src="i18n.js"></script>

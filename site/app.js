@@ -363,16 +363,26 @@
     document.fonts?.addEventListener('loadingdone', fitLid);
   }
 
-  // header and loading text in the right language before the data arrives
+  // header and loading picture in the right language before the data arrives
   S.l = hashLang();
   chrome();
-  $('#panel .loading').textContent = T().loading;
+  const ld = $('#loading');
+  ld.insertAdjacentHTML('afterbegin', Draw.loader());
+  $('.ld-msg').innerHTML = `<p>${esc(T().loading)}</p>`;
 
   load().then(() => {
+    // the loading picture fades in after a moment (style.css); if it was up, the cabinet fades in after it
+    const shown = +getComputedStyle(ld).opacity > 0;
+    ld.remove();
     readHash();
     bind();
     render();
+    if (shown) $('.layout').animate({ opacity: [0, 1] }, { duration: 300, easing: 'ease-out' });
   }).catch((err) => {
-    $('#panel').innerHTML = `<div class="empty"><p>${esc(T().loadFail(err.message))}</p><p>${T().retry}</p></div>`;
+    // the drawers stop and the message says what went wrong (put back if it failed after the data came)
+    document.body.dataset.view = 'loading';
+    $('.layout').append(ld);
+    ld.classList.add('failed');
+    $('.ld-msg').innerHTML = `<p>${esc(T().loadFail(err.message))}</p><p>${T().retry}</p>`;
   });
 })();
