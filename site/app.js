@@ -144,9 +144,10 @@
   const drawerOf = (id) => { const c = D.cats[id], name = cname(c); return { ...c, name, label: T().drawer(name, c.count), closeLabel: T().close(name) }; };
   function drawCabinet() {
     const cols = phone.matches ? 2 : 4;
-    const { svg, L } = Draw.cabinet(D.order.map(drawerOf), cols, T().lift);
+    const { svg, floor, L } = Draw.cabinet(D.order.map(drawerOf), cols, T().lift);
     const el = $('#cabinet');
-    el.setAttribute('viewBox', `0 0 ${L.vw} ${L.vh}`);
+    for (const e of [el, $('#floor')]) e.setAttribute('viewBox', `0 0 ${L.vw} ${L.vh}`);
+    $('#floor').innerHTML = floor;
     el.innerHTML = svg + '<g id="overlay"></g>';
     CAB = { L, cols };
   }
@@ -273,15 +274,19 @@
   // Grab a foot and pull it in towards the middle (the left one to the right, the right one to the left): that side of the
   // cabinet comes up, tipping over the other foot, and once it is well up the drawers knock over to the low side of their
   // slots. Let go and it falls, bounces once, and every drawer rattles in its slot, the ones furthest from the foot it
-  // tipped over the most. The fall and the rattling are worked out when it is let go and played as Web Animations of CSS
-  // transforms, which the browser runs without drawing the cabinet again (see Draw.tipped). In cabinet units and
-  // milliseconds; none of it goes in the URL.
-  // TIP: which foot is up (side), how high (h), and whether the drawers have knocked over (slid). HOLD: the pointer on it.
-  const TIP = { side: 'l', h: 0, slid: false };
-  let HOLD = null;
-  // HEAVY: how far a foot is pulled to lift it most of the way (× its highest); BOUNCE: the share of its speed it keeps
-  // off the floor; RATTLE: how long the drawers rattle after each time it hits the floor
-  const HEAVY = 1.8, BOUNCE = 0.3, RATTLE = 1300;
+  // tipped over the most. To keep it smooth, things only move by CSS transforms, the cabinet keeps a compositing layer
+  // of its own (style.css), the shadows are in their own <svg> under it, the cabinet follows the pointer once a frame
+  // through a spring, the fall and the rattling are worked out when it is let go and played as Web Animations, and the
+  // pencil textures are pictures (see bake()), so the browser drawing the cabinet again as it turns is quick. In cabinet
+  // units and milliseconds; none of it goes in the URL.
+  // TIP: which foot is up (side), how high (h), how fast it is going up (v), and whether the drawers have knocked over
+  // (slid). HOLD: the pointer on it, and how high the pointer is pulling it (want).
+  const TIP = { side: 'l', h: 0, v: 0, slid: false };
+  let HOLD = null, FOLLOW = 0;
+  // HEAVY: how far a foot is pulled to lift it most of the way (× its highest); CATCH: how quickly a held cabinet catches
+  // up with the pointer (per ms); BOUNCE: the share of its speed it keeps off the floor; RATTLE: how long the drawers
+  // rattle after each time it hits the floor
+  const HEAVY = 1.8, CATCH = 0.04, BOUNCE = 0.3, RATTLE = 1300;
   // each drawer rattles its own way: how far it slides (k), how fast it hops, shifts and turns, which way, and how late
   const QUIRK = new Map();
   function quirk(id) {
@@ -291,31 +296,28 @@
     }
     return QUIRK.get(id);
   }
-  // what tips: the cabinet, the floor under it and the raised foot's shadow
-  const tipping = () => { const cab = $('#cabinet'); return { cab, floor: cab.querySelector('.floor'), shadow: cab.querySelector('.fs-' + TIP.side) }; };
-  // every drawer, closed or pulled out, with its place in the cabinet
-  const drawerEls = () => [...$('#cabinet').querySelectorAll(':scope > .drawer, #overlay [data-out]')].map((g) => [g, D.order.indexOf(g.dataset.cat || g.dataset.out)]);
-  // stop what a drawer is doing where it is: returns its transform at that moment, and how far it is off to the side
-  function halt(g) {
-    const now = getComputedStyle(g).transform;
-    g.getAnimations().forEach((a) => a.cancel());
-    return [now, new DOMMatrix(now === 'none' ? undefined : now).e];
+  // what tips: the cabinet, and the raised foot's shadow on the floor
+  const tipping = () => ({ cab: $('#cabinet'), shadow: $('#floor .fs-' + TIP.side) });
+  // the cabinet shown `h` up, or standing (h = 0)
+  function show(h) {
+    const els = tipping(), st = Draw.tipped(CAB.L, TIP.side, h);
+    for (const k in els) for (const p in st[k]) els[k].style[p] = h ? st[k][p] : '';
   }
-  // the cabinet held still `h` up, or standing (h = 0)
-  function hold(h) {
-    const els = tipping(), st = Draw.tipped(CAB.L, TIP.side, h), at = Draw.pivots(CAB.L, TIP.side);
-    for (const k in els) {
-      els[k].getAnimations().forEach((a) => a.cancel());
-      els[k].style.transformOrigin = at[k];
-      for (const p in st[k]) els[k].style[p] = h ? st[k][p] : '';
-    }
+  // Stop every drawer where it is, all read first and then all stopped, so the page works out its styles once:
+  // [element, place in the cabinet, its transform at that moment, how far it is off to the side].
+  function halt() {
+    const ds = [...$('#cabinet').querySelectorAll(':scope > .drawer, #overlay > [data-out]')].map((g) => {
+      const now = getComputedStyle(g).transform;
+      return [g, D.order.indexOf(g.dataset.cat || g.dataset.out), now, new DOMMatrix(now === 'none' ? undefined : now).e];
+    });
+    for (const [g] of ds) g.getAnimations().forEach((a) => a.cancel());
+    return ds;
   }
   // the drawers knock over to the low side of their slots (dir 1 right, -1 left), or slide back to the middle (0)
   function knock(dir) {
-    const L = CAB.L;
-    for (const [g, i] of drawerEls()) {
-      const [from, x0] = halt(g), x1 = (2 * L.dh / 160) * quirk(D.order[i]).k * dir, to = (x) => Draw.shaken(x, 0, 0);
-      g.style.transformOrigin = Draw.middle(L, i);
+    const z = CAB.L.dh / 160, to = (x) => Draw.shaken(x, 0, 0);
+    for (const [g, i, from, x0] of halt()) {
+      const x1 = 2 * z * quirk(D.order[i]).k * dir;
       g.animate([{ transform: from, easing: 'ease-in' }, { transform: to(x1), offset: 0.6, easing: 'ease-out' }, { transform: to(x1 - 0.25 * (x1 - x0)), offset: 0.8, easing: 'ease-in' }, { transform: to(x1) }], { duration: 240, fill: 'forwards' });
     }
   }
@@ -323,18 +325,18 @@
     const g = e.target.closest('.leg');
     if (!g || !e.isPrimary || e.button || DRAG || HOLD) return;
     const cab = $('#cabinet'), falling = cab.getAnimations().length > 0, side = g.dataset.side;
-    // the other foot can't be grabbed while this one is up; this one can be caught on its way down
+    // the other foot can't be grabbed while this one is up; this one can be caught on its way down, and held from there
     if (falling && side !== TIP.side) return;
     e.preventDefault();
-    let h = 0;
-    if (falling) { const m = new DOMMatrix(getComputedStyle(cab).transform); h = Math.abs(m.b / m.a) * (CAB.L.W - 20); }
     const top = Draw.rise(CAB.L);
-    h = Math.min(h, top * 0.99);
-    TIP.side = side;
-    TIP.h = h;
-    document.body.classList.add('lifting');
-    hold(h);
-    HOLD = { pid: e.pointerId, x0: e.clientX, d0: -top * HEAVY * Math.log(1 - h / top), moved: false };
+    let h = 0;
+    if (falling) { const m = new DOMMatrix(getComputedStyle(cab).transform); h = Math.min(top * 0.99, Math.abs(m.b / m.a) * (CAB.L.W - 20)); }
+    for (const el of Object.values(tipping())) el.getAnimations().forEach((a) => a.cancel());
+    Object.assign(TIP, { side, h, v: 0 });
+    const els = tipping(), at = Draw.pivots(CAB.L, side);
+    for (const k in els) els[k].style.transformOrigin = at[k];
+    show(h);
+    HOLD = { pid: e.pointerId, x0: e.clientX, d0: -top * HEAVY * Math.log(1 - h / top), want: h, moved: false };
   }
   function pullFoot(e) {
     const d = HOLD;
@@ -348,16 +350,34 @@
     }
     // the further it is pulled in, the harder it gets: it never goes past rise()
     const top = Draw.rise(CAB.L), pulled = Math.max(0, d.d0 + (e.clientX - d.x0) * (TIP.side === 'l' ? 1 : -1) * d.per);
-    TIP.h = top * (1 - Math.exp(-pulled / (top * HEAVY)));
-    hold(TIP.h);
-    if (still.matches) return;
-    if (!TIP.slid && TIP.h > top * 0.3) { TIP.slid = true; knock(TIP.side === 'l' ? 1 : -1); }
-    else if (TIP.slid && TIP.h < top * 0.1) { TIP.slid = false; knock(0); }
+    d.want = top * (1 - Math.exp(-pulled / (top * HEAVY)));
+    FOLLOW ||= requestAnimationFrame(follow);
+  }
+  // One frame of a held cabinet catching up with the pointer, once per frame however often the pointer moves: a spring
+  // that doesn't overshoot, worked out exactly so a long frame can't throw it.
+  function follow(now) {
+    FOLLOW = 0;
+    const d = HOLD;
+    if (!d) return;
+    const dt = Math.min(64, now - (d.t ?? now - 16)), x = TIP.h - d.want, c = TIP.v + CATCH * x, k = Math.exp(-CATCH * dt);
+    d.t = now;
+    TIP.h = Math.max(0, d.want + (x + c * dt) * k);
+    TIP.v = (TIP.v - CATCH * c * dt) * k;
+    show(TIP.h);
+    if (!still.matches) {
+      const top = Draw.rise(CAB.L);
+      if (!TIP.slid && TIP.h > top * 0.3) { TIP.slid = true; knock(TIP.side === 'l' ? 1 : -1); }
+      else if (TIP.slid && TIP.h < top * 0.1) { TIP.slid = false; knock(0); }
+    }
+    if (Math.abs(TIP.h - d.want) > 0.02 || Math.abs(TIP.v) > 1e-4) FOLLOW = requestAnimationFrame(follow);
+    else d.t = undefined;
   }
   function dropFoot(e) {
     const d = HOLD;
     if (!d || e.pointerId !== d.pid) return;
     HOLD = null;
+    cancelAnimationFrame(FOLLOW);
+    FOLLOW = 0;
     if (d.moved) {
       document.body.classList.remove('dragging');
       SWALLOW = true;
@@ -367,17 +387,18 @@
   }
   // let go: the cabinet falls under gravity and bounces off the floor, worked out in steps of 2 ms
   function drop() {
-    const L = CAB.L, z = L.dh / 160, G = 0.0018 * z, full = Math.sqrt(2 * G * Draw.rise(L)), h0 = TIP.h;
-    TIP.h = 0;
-    hold(0);
+    const L = CAB.L, z = L.dh / 160, G = 0.0018 * z, top = Draw.rise(L), full = Math.sqrt(2 * G * top), h0 = TIP.h;
+    // still going up when let go, it carries on up a little first (no more than a quarter of the way again)
+    const v0 = Math.min(TIP.v, Math.sqrt(2 * G * top * 0.25));
+    Object.assign(TIP, { h: 0, v: 0 });
+    show(0);
     if (!h0 || still.matches) {
       if (TIP.slid) { TIP.slid = false; knock(0); }
-      document.body.classList.remove('lifting');
       return;
     }
     // where it is every 16 ms and each time it lands; when it lands and how hard (1 = dropped from as high as it goes)
     const pts = [[0, h0]], hits = [];
-    for (let t = 0, h = h0, v = 0; h > 0 || v;) {
+    for (let t = 0, h = h0, v = v0; h > 0 || v;) {
       t += 2;
       v -= G * 2;
       h += v * 2;
@@ -389,17 +410,14 @@
       if (v * v < 2 * G * 0.6) v = 0; // a bounce under 0.6 units: it has come to rest
     }
     const end = pts[pts.length - 1][0], els = tipping();
-    for (const k in els) {
-      const a = els[k].animate(pts.map(([t, h]) => ({ offset: t / end, ...Draw.tipped(L, TIP.side, h)[k] })), { duration: end });
-      if (k === 'cab') a.onfinish = () => { if (!HOLD) document.body.classList.remove('lifting'); };
-    }
+    for (const k in els) els[k].animate(pts.map(([t, h]) => ({ offset: t / end, ...Draw.tipped(L, TIP.side, h)[k] })), { duration: end });
 
     // The drawers rattle: each hit sends them hopping in their slots, shifting and turning, dying away over RATTLE ms.
     // One that had knocked over to the low side goes back to the middle as it does.
     const T1 = hits[0][0], last = hits[hits.length - 1][0] + RATTLE, pivot = TIP.side === 'l' ? L.X + L.W - 10 : L.X + 10;
     const times = [...new Set([...Array.from({ length: Math.ceil(last / 16) }, (_, k) => k * 16), ...hits.map(([t]) => t), last])].sort((a, b) => a - b);
-    for (const [g, i] of drawerEls()) {
-      const q = quirk(D.order[i]), [from, x0] = halt(g), mid = L.cells[i][0] + L.dw / 2;
+    for (const [g, i, from, x0] of halt()) {
+      const q = quirk(D.order[i]), mid = L.cells[i][0] + L.dw / 2;
       // the further from the foot it tipped over, the faster a drawer was falling when the cabinet landed
       const lever = 0.5 + 0.5 * Math.abs(mid - pivot) / (L.W - 20);
       const at = (t) => {
@@ -415,10 +433,26 @@
         }
         return Draw.shaken(x, y, r);
       };
-      g.style.transformOrigin = Draw.middle(L, i);
       g.animate(times.map((t) => ({ offset: t / last, transform: t ? at(t) : from })), { duration: last });
     }
     TIP.slid = false;
+  }
+
+  /* ---------- pictures of the textures ---------- */
+  // The cabinet shows its pencil textures as pictures (Draw.bake), drawn for the size it is shown at on this screen.
+  // bake() draws whatever the cabinet now wants; when that leaves the cabinet out of date, it is drawn again, as soon
+  // as nothing on it is moving.
+  let REDRAW = 0;
+  const scale = () => { const w = $('#cabinet').getBoundingClientRect().width; return Math.min(3, ((w || CAB.L.vw) / CAB.L.vw) * devicePixelRatio * 1.1); };
+  const bake = () => Draw.bake(scale()).then((stale) => { if (stale) redraw(); });
+  function redraw() {
+    clearTimeout(REDRAW);
+    if (DRAG || HOLD || [...OUT.values()].some((o) => o.t0 != null) || $('.cab-col').getAnimations({ subtree: true }).some((a) => a.playState === 'running')) {
+      REDRAW = setTimeout(redraw, 300);
+      return;
+    }
+    drawCabinet();
+    drawOverlay(view());
   }
 
   /* ---------- cards ---------- */
@@ -615,10 +649,14 @@
     });
     document.querySelectorAll('.lang [data-lang]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== S.l) setLang(b.dataset.lang); }));
     window.addEventListener('hashchange', () => { readHash(); render(); });
-    phone.addEventListener('change', () => { drawCabinet(); render(); });
+    phone.addEventListener('change', () => { drawCabinet(); render(); bake(); });
+    let resized = 0;
     new ResizeObserver(() => {
       document.documentElement.style.setProperty('--cab-h', cab.getBoundingClientRect().height + 'px');
       fitLid();
+      // a bigger cabinet wants bigger pictures
+      clearTimeout(resized);
+      resized = setTimeout(bake, 400);
     }).observe(cab);
     // text gets wider or narrower as the self-hosted fonts arrive
     document.fonts?.addEventListener('loadingdone', fitLid);
@@ -632,15 +670,22 @@
   $('.ld-msg').innerHTML = `<p>${esc(T().loading)}</p>`;
 
   // The loading picture stays up for at least SHOW ms from opening the page, even when the data comes sooner. The data
-  // loads meanwhile, so a slow connection waits no longer than it would anyway. Then it fades out and the cabinet in.
+  // loads meanwhile, so a slow connection waits no longer than it would anyway, and once it is in, the cabinet's textures
+  // are drawn into pictures (for a cabinet unit about a CSS pixel, as it is on most screens) for what time is left. Then
+  // the loading picture fades out and the cabinet in, and its pictures are made again if it turned out to be bigger.
   const SHOW = 3000;
   const shown = new Promise((ok) => setTimeout(ok, Math.max(0, SHOW - performance.now())));
-  Promise.all([load(), shown]).then(async () => {
+  const baked = load().then(() => {
+    Draw.cabinet(D.order.map(drawerOf), phone.matches ? 2 : 4, '');
+    return Promise.race([Draw.bake(Math.min(3, devicePixelRatio * 1.1)), new Promise((ok) => setTimeout(ok, Math.max(500, SHOW - performance.now())))]);
+  });
+  Promise.all([baked, shown]).then(async () => {
     await ld.animate({ opacity: [1, 0] }, { duration: 200, easing: 'ease-in', fill: 'forwards' }).finished;
     ld.remove();
     readHash();
     bind();
     render();
+    bake();
     $('.layout').animate({ opacity: [0, 1] }, { duration: 300, easing: 'ease-out' });
   }).catch((err) => {
     // the drawers stop and the message says what went wrong (put back if it failed after the data came)

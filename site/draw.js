@@ -106,19 +106,29 @@ window.Draw = (() => {
     return `<rect class="grip" x="${f(hx - w / 2)}" y="${f(hy - hr - 10)}" width="${f(w)}" height="${f(hr * 2.65 + 24)}"/>`;
   }
 
-  function front(x, y, dw, dh, d, lp) {
+  // where a drawer front's label is: the card `lw` × `lh` at lx, ly, in a brass plate 4 wider all round
+  const label = (x, y, dw, dh) => { const big = dh > 140, lw = dw - (big ? 40 : 22); return { lw, lx: x + (dw - lw) / 2, ly: y + (big ? 18 : 12), lh: big ? 54 : 44 }; };
+  // a drawer front but for the words on it: the wood, the brass plate with its card, and the handle
+  function frontArt(x, y, dw, dh, d) {
     let s = `<rect x="${f(x)}" y="${f(y)}" width="${f(dw)}" height="${dh}" fill="#dcbf92"/>` + fillRect(x, y, dw, dh, WOOD, { op: 0.95 }) + box(x, y, dw, dh, { w: 1.2 }) + box(x + 5, y + 5, dw - 10, dh - 10, { w: 0.6, once: true, op: 0.6 });
-    const big = dh > 140, lw = dw - (big ? 40 : 22), lx = x + (dw - lw) / 2, ly = y + (big ? 18 : 12), lh = big ? 54 : 44;
+    const { lw, lx, ly, lh } = label(x, y, dw, dh);
     s += fillRect(lx - 4, ly - 4, lw + 8, lh + 8, BRASS, { op: 0.85, strokes: false }) + box(lx - 4, ly - 4, lw + 8, lh + 8, { w: 0.9, once: true });
     s += `<rect x="${f(lx)}" y="${ly}" width="${f(lw)}" height="${lh}" fill="${CREAM}"/>` + fillRect(lx, ly, lw, 6, d.color, { op: 0.9, strokes: false });
-    const { lines, size } = plate(d.name, lw - 10, lp);
-    if (lines.length > 1) s += text(lx + lw / 2, ly + lh / 2 - 1, lines[0], { size, anchor: 'middle' }) + text(lx + lw / 2, ly + lh / 2 + size + 1, lines[1], { size, anchor: 'middle' });
-    else s += text(lx + lw / 2, ly + lh / 2 + lp * 0.4, lines[0], { size, anchor: 'middle' });
-    s += text(lx + lw - 3, ly + lh - 3, String(d.count), { size: 10.5, anchor: 'end', color: RED, latin: true });
     const { hx, hy, hr } = handle(x, y, dw, dh), ring = `M${f(hx - hr)} ${f(hy)}a${hr} ${hr} 0 1 0 ${2 * hr} 0a${hr} ${hr} 0 1 0 ${-2 * hr} 0`, pull = `M${f(hx - hr * 1.45)} ${f(hy + 2)}a${f(hr * 1.45)} ${f(hr * 1.65)} 0 0 0 ${f(hr * 2.9)} 0`;
     s += pencil(ring, BRASS, { op: 0.95, strokes: false }) + ink(ring, { w: 1 }) + ink(pull, { w: 2, color: '#7a5a22' }) + ink(pull, { w: 0.9 });
     return s;
   }
+  // the words on a drawer front: its name on the label, and how many cards it holds in the label's corner
+  function frontText(x, y, dw, dh, d, lp) {
+    const { lw, lx, ly, lh } = label(x, y, dw, dh), { lines, size } = plate(d.name, lw - 10, lp);
+    const name = lines.length > 1
+      ? text(lx + lw / 2, ly + lh / 2 - 1, lines[0], { size, anchor: 'middle' }) + text(lx + lw / 2, ly + lh / 2 + size + 1, lines[1], { size, anchor: 'middle' })
+      : text(lx + lw / 2, ly + lh / 2 + lp * 0.4, lines[0], { size, anchor: 'middle' });
+    return name + text(lx + lw - 3, ly + lh - 3, String(d.count), { size: 10.5, anchor: 'end', color: RED, latin: true });
+  }
+  const front = (x, y, dw, dh, d, lp) => frontArt(x, y, dw, dh, d) + frontText(x, y, dw, dh, d, lp);
+  // the same, with the art as a picture once there is one (see bake())
+  const frontBaked = (x, y, dw, dh, d, lp) => art(frontArt(x, y, dw, dh, d), x - 4, y - 4, dw + 8, dh + 8) + frontText(x, y, dw, dh, d, lp);
 
   // where the feet stand: the plinth's top `by`, the floor `fb`, each foot `fw` wide, its left edge at xs.l or xs.r
   function feet(L) {
@@ -126,12 +136,12 @@ window.Draw = (() => {
     return { by, fb: by + L.foot, fw, xs: { l: X + 6, r: X + W - 6 - fw } };
   }
 
-  // the shadows on the floor: a faint one under the whole cabinet and one under each foot (tipped() moves them)
+  // the shadows on the floor: a faint one under the whole cabinet and one under each foot (tipped() fades a raised one's)
   function floor(L) {
     const { fb, fw, xs } = feet(L);
     let s = `<ellipse cx="${L.X + L.W / 2}" cy="${fb}" rx="${L.W / 2 + 6}" ry="3" fill="#3b2a1e" opacity=".1"/>`;
     for (const side of ['l', 'r']) s += `<ellipse class="fs-${side}" cx="${xs[side] + fw / 2}" cy="${fb}" rx="${fw / 2 + 5}" ry="2.6" fill="#3b2a1e" opacity=".22"/>`;
-    return `<g class="floor">${s}</g>`;
+    return s;
   }
 
   // the cabinet without its drawers: top, body, plinth and feet
@@ -158,41 +168,87 @@ window.Draw = (() => {
 
   // How high a foot can be lifted: enough to tip the cabinet about 3 degrees, and no more than 36 on the big cabinet.
   const rise = (L) => Math.min(36, (L.W - 20) * Math.tan(Math.PI / 60));
-  // The cabinet with its `side` foot ('l' or 'r') lifted `h` off the floor, as CSS for three things: the whole <svg>
-  // (`cab`) turns about the outer edge of the other foot, the .floor group turns back the same way so the shadows stay on
-  // the floor, and the raised foot's shadow (`shadow`) fades and spreads. CSS transforms, not SVG ones, so the browser can
-  // turn the picture it already has instead of drawing it all again every frame. pivots() gives what each one turns about.
+  // The cabinet with its `side` foot ('l' or 'r') lifted `h` off the floor, as CSS for two things: the cabinet's <svg>
+  // (`cab`) turns about the outer edge of the other foot, and on the floor, which is a separate <svg> under it and stays
+  // put, the raised foot's shadow (`shadow`) fades and spreads. CSS transforms, not SVG ones, so the browser can turn the
+  // picture it already has instead of drawing it all again every frame. pivots() gives what each one turns about.
   function tipped(L, side, h) {
     const up = Math.min(1, h / rise(L)), a = ((side === 'l' ? 1 : -1) * Math.atan2(h, L.W - 20) * 180) / Math.PI;
     return {
       cab: { transform: `rotate(${a.toFixed(3)}deg)` },
-      floor: { transform: `rotate(${(-a).toFixed(3)}deg)` },
       shadow: { transform: `scale(${(1 + 0.6 * up).toFixed(3)}, 1)`, opacity: (0.22 * (1 - 0.75 * up)).toFixed(3) },
     };
   }
   function pivots(L, side) {
     const { fb, fw, xs } = feet(L), px = side === 'l' ? L.X + L.W - 10 : L.X + 10;
-    return { cab: `${((px / L.vw) * 100).toFixed(3)}% ${((fb / L.vh) * 100).toFixed(3)}%`, floor: `${px}px ${fb}px`, shadow: `${xs[side] + fw / 2}px ${fb}px` };
+    return { cab: `${((px / L.vw) * 100).toFixed(3)}% ${((fb / L.vh) * 100).toFixed(3)}%`, shadow: `${xs[side] + fw / 2}px ${fb}px` };
   }
-  // a drawer jolted in its slot, as a CSS transform: moved x, y and turned r degrees about its middle, which middle()
-  // gives for drawer `i` as a transform-origin
+  // a drawer jolted in its slot, as a CSS transform: moved x, y and turned r degrees about its middle (each drawer's
+  // transform-origin, set where it is drawn)
   const shaken = (x, y, r) => `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${r.toFixed(3)}deg)`;
-  const middle = (L, i) => `${f(L.cells[i][0] + L.dw / 2)}px ${f(L.cells[i][1] + L.dh / 2)}px`;
+  const middle = (L, i) => `transform-origin:${f(L.cells[i][0] + L.dw / 2)}px ${f(L.cells[i][1] + L.dh / 2)}px`;
+
+  /* ---------- pictures of the textures ---------- */
+  // The pencil textures are SVG filters, which are slow to draw, and the browser draws the cabinet again whenever any of
+  // it moves: tipped over a foot, drawers rattling or coming out. So what never changes once drawn (the carcass, and
+  // each drawer front but for its words) is drawn once into a picture by bake(), and the cabinet shows the pictures:
+  // the same drawing, but quick to draw again. Until a picture is ready, or if making one fails, the markup is shown.
+  // PICS: the pictures, by what they show (their markup), with the scale they were drawn at. SEEN: what the cabinet
+  // drawn last wanted pictures of, and which picture it got (`used`).
+  const PICS = new Map(), SEEN = new Map();
+  let BAKING = Promise.resolve();
+  // `markup` covering x, y, w × h: its picture if there is one, else the markup itself
+  function art(markup, x, y, w, h) {
+    const key = hash(markup) + ':' + markup.length, pic = PICS.get(key);
+    SEEN.set(key, { markup, x, y, w, h, used: pic?.url });
+    return pic ? `<image href="${pic.url}" x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="none"/>` : markup;
+  }
+  // Draws a picture of everything the last cabinet wanted, at `scale` picture pixels per cabinet unit, one a frame so the
+  // page doesn't stall; a picture drawn at nearly that scale or more is kept. Resolves true when the cabinet as drawn
+  // last is out of date: a picture it showed as markup, or at a smaller scale, has been drawn since.
+  function bake(scale) {
+    BAKING = BAKING.then(async () => {
+      for (const [key, { markup, x, y, w, h }] of SEEN) {
+        if (PICS.get(key)?.s >= scale * 0.95) continue;
+        const W = Math.ceil(w * scale), H = Math.ceil(h * scale), img = new Image();
+        img.src = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="${f(x)} ${f(y)} ${f(w)} ${f(h)}" preserveAspectRatio="none">${defs()}${markup}</svg>`], { type: 'image/svg+xml' }));
+        try {
+          await img.decode();
+          const c = Object.assign(document.createElement('canvas'), { width: W, height: H });
+          c.getContext('2d').drawImage(img, 0, 0, W, H);
+          const blob = await new Promise((ok) => c.toBlob(ok)), url = blob && URL.createObjectURL(blob);
+          if (!url) continue;
+          // loaded once here, so the cabinet can show it straight away
+          const pic = new Image();
+          pic.src = url;
+          await pic.decode();
+          const old = PICS.get(key);
+          PICS.set(key, { url, s: scale, pic });
+          if (old) setTimeout(() => URL.revokeObjectURL(old.url), 5000);
+        } catch { /* left as markup */ } finally { URL.revokeObjectURL(img.src); }
+        await new Promise(requestAnimationFrame);
+      }
+      return [...SEEN].some(([key, p]) => PICS.get(key) && p.used !== PICS.get(key).url);
+    }).catch(() => false);
+    return BAKING;
+  }
 
   // the cabinet body and every drawer, closed; each drawer is its own button. Each front is drawn from its own seed, so
   // pulled() draws it stroke for stroke the same and a drawer starting to come out doesn't flicker. `lift` is the tooltip
-  // on the feet.
+  // on the feet. The shadows on the floor (`floor`) go in an <svg> of their own under the cabinet's, so that the cabinet
+  // can tip over a foot while they stay put.
   function cabinet(drawers, cols, lift) {
     const L = layout(drawers.length, cols), { dw, dh } = L;
     seed('cabinet-' + cols);
-    let s = defs() + floor(L) + carcass(L) + legGrips(L, lift);
+    SEEN.clear();
+    let s = defs() + art(carcass(L), L.X - 20, L.Y - 18, L.W + 40, L.H + L.foot + 22) + legGrips(L, lift);
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
       seed('front:' + d.id);
-      s += `<g class="drawer" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.label)}">` + front(x, y, dw, dh, d, L.lp) +
+      s += `<g class="drawer" data-cat="${esc(d.id)}" style="${middle(L, i)}" role="button" tabindex="0" aria-label="${esc(d.label)}">` + frontBaked(x, y, dw, dh, d, L.lp) +
         `<rect class="hov" x="${f(x)}" y="${y}" width="${f(dw)}" height="${dh}"/><rect class="ring" x="${f(x - 3)}" y="${y - 3}" width="${f(dw + 6)}" height="${dh + 6}" rx="3"/>` + grip(x, y, dw, dh) + '</g>';
     });
-    return { svg: s, L };
+    return { svg: s, floor: floor(L), L };
   }
 
   // A drawer `p` of the way out (0 shut, 1 as far as it goes): the front comes down by p · PULL of its height and grows
@@ -220,10 +276,10 @@ window.Draw = (() => {
   function pulled(L, i, d, tabs = [], active = -1, p = 1) {
     const [x, y] = L.cells[i], { dw, dh } = L, { open, body, shade, walls, btns } = inside(L, i, d, tabs, active);
     seed('front:' + d.id);
-    const face = front(x, y, dw, dh, d, L.lp) + grip(x, y, dw, dh), top = rimTop(x, y, dw, dh), ps = pose(L, i, p), clip = `pc-${i}`;
+    const face = frontBaked(x, y, dw, dh, d, L.lp) + grip(x, y, dw, dh), top = rimTop(x, y, dw, dh), ps = pose(L, i, p), clip = `pc-${i}`;
     const inn = (s) => `<g clip-path="url(#${clip})"><g class="pl-in" transform="${ps.in}">${s}</g></g>`;
     const out = (s) => `<g class="pl-out" transform="${ps.out}">${s}</g>`;
-    return `<g data-out="${esc(d.id)}"><clipPath id="${clip}"><rect x="${f(x - 12)}" y="${y}" width="${f(dw + 24)}" height="${dh}"/></clipPath>` +
+    return `<g data-out="${esc(d.id)}" style="${middle(L, i)}"><clipPath id="${clip}"><rect x="${f(x - 12)}" y="${y}" width="${f(dw + 24)}" height="${dh}"/></clipPath>` +
       `<g class="drawer pulled" data-cat="${esc(d.id)}" role="button" tabindex="0" aria-label="${esc(d.closeLabel)}">` +
       open + inn(body) + shade + inn(walls) + `<g class="pl-rim" opacity="${ps.rim}">${out(rimUnder(x, y, dw, dh))}</g><g clip-path="url(#${clip})">${out(top)}</g>` + out(face) +
       '</g>' + inn(btns.join('')) + '</g>';
@@ -348,5 +404,5 @@ window.Draw = (() => {
     return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="${esc(label)}"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, label, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
   }
 
-  return { esc, hash, rng, cabinet, pulled, setPull, reach, rise, tipped, pivots, shaken, middle, flag, dim, note, loader, INK, RED };
+  return { esc, hash, rng, cabinet, pulled, setPull, reach, rise, tipped, pivots, shaken, bake, flag, dim, note, loader, INK, RED };
 })();
