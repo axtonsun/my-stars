@@ -16,14 +16,15 @@ window.I18N = (() => {
     meta: '把 GitHub Star 收进一个目录柜：一个抽屉一个分类，一个仓库一张卡片',
     docTitle: (user) => `目录柜 · ${user ? user + ' 的 ' : ''}GitHub Stars`,
     sub: (n, total) => `${n} 个抽屉，${total} 张卡片；一个抽屉一个分类，抽屉里一个仓库一张卡片`,
-    foot: (n, total, date) => `${n} 个抽屉 · ${total} 张卡片 · ${date}校对 · 每天自动同步`,
+    foot: (date) => `${date}校对 · 每天自动同步`,
     allOnGitHub: '在 GitHub 上看全部 Star',
     placeholder: '检索  仓库名、简介、标签……',
     search: '检索',
     cabinet: '目录柜：每个抽屉是一个分类',
     loading: '正在打开柜子……',
-    loadFail: (msg) => `卡片没有加载出来：${msg}`,
-    retry: '刷新一下试试。',
+    loadFail: '卡片没有加载出来，可能是网络不稳定。',
+    reload: '重新加载',
+    skip: '跳到卡片列表',
 
     date: (iso) => { const [y, m, d] = ymd(iso); return `${[...String(y)].map((c) => CN[c]).join('')}年${cnNum(m)}月${cnNum(d)}日`; },
     ago: (d) => (d < 1 ? '今天' : d < 30 ? `${Math.floor(d)} 天前` : d < 365 ? `${Math.floor(d / 30)} 个月前` : `${Math.floor(d / 365)} 年前`),
@@ -47,10 +48,8 @@ window.I18N = (() => {
     back: '柜子',
     sorts: { stars: 'Star', starred: '收藏时间', pushed: '最近更新' },
     sortLabel: '排序',
-    homeKicker: '新到的卡片',
     homeTitle: '最近收进来的',
     homeAside: '点抽屉拉开，也可以拽住把手往外拉',
-    drawerKicker: '拉开的抽屉',
     filterLabel: '按标签筛',
     all: '全部',
     tagHint: (tag, n, all, href) => `分隔卡「${tag}」下有 ${n} 张；<a href="${href}">点「全部」</a>看这个抽屉的 ${all} 张`,
@@ -58,7 +57,6 @@ window.I18N = (() => {
     searchAside: (n) => `来自 ${n} 个抽屉<span class="wide">，小红旗标着每个抽屉里有几张</span>`,
     notFound: (q) => `没有找到「${q}」。`,
     notFoundHint: '仓库名、中文简介、英文简介、标签和编程语言都能搜，可以换个说法试试。',
-    inboxKicker: '还没放进抽屉的新卡片',
     inboxIntro: '每天同步时，新 Star 的仓库会先放在这个筐里，先用 GitHub 自带的简介和标签；跟 Claude 说一句「更新分类」，它们就会被归进抽屉。筐里的卡片照样能被检索到。',
     inboxEmpty: '筐是空的，所有卡片都已归档。',
 
@@ -85,6 +83,16 @@ window.I18N = (() => {
     putBack: '放回去',
     relSame: '同一个抽屉里，主题词相近的',
     relOther: '别的抽屉里，主题词相近的',
+
+    // read out by screen readers when the page changes, instead of the whole panel
+    said: {
+      home: '回到柜子',
+      drawer: (name, n) => `拉开了「${name}」，${n} 张卡片`,
+      tag: (tag, n) => `分隔卡「${tag}」，${n} 张卡片`,
+      search: (q, n, k) => (n ? `检索「${q}」：${n} 张卡片，来自 ${k} 个抽屉` : `检索「${q}」：没有找到`),
+      inbox: (n) => `待归档：${n} 张卡片`,
+      card: (name) => `取出卡片：${name}`,
+    },
   };
 
   const en = {
@@ -95,14 +103,15 @@ window.I18N = (() => {
     meta: 'GitHub stars filed in a card catalogue: one drawer per category, one card per repo',
     docTitle: (user) => `Card Catalogue · ${user ? user + "'s " : ''}GitHub Stars`,
     sub: (n, total) => `${n} drawers, ${total} cards: GitHub stars, one drawer per category and one card per repo`,
-    foot: (n, total, date) => `${n} drawers · ${total} cards · checked ${date} · synced daily`,
+    foot: (date) => `checked ${date} · synced daily`,
     allOnGitHub: 'All stars on GitHub',
     placeholder: 'Search names, summaries, tags…',
     search: 'Search',
     cabinet: 'Card catalogue: each drawer is a category',
     loading: 'Opening the cabinet…',
-    loadFail: (msg) => `The cards didn't load: ${msg}`,
-    retry: 'Try refreshing the page.',
+    loadFail: "The cards didn't load. The connection may be unstable.",
+    reload: 'Reload',
+    skip: 'Skip to the cards',
 
     date: (iso) => { const [y, m, d] = ymd(iso); return `${d} ${MON[m - 1]} ${y}`; },
     ago: (d) => (d < 1 ? 'today' : d < 30 ? pl(Math.floor(d), 'day') + ' ago' : d < 365 ? pl(Math.floor(d / 30), 'month') + ' ago' : pl(Math.floor(d / 365), 'year') + ' ago'),
@@ -126,10 +135,8 @@ window.I18N = (() => {
     back: 'Cabinet',
     sorts: { stars: 'Stars', starred: 'Starred', pushed: 'Updated' },
     sortLabel: 'Sort',
-    homeKicker: 'New arrivals',
     homeTitle: 'Recently starred',
     homeAside: 'Click a drawer, or drag its handle',
-    drawerKicker: 'Drawer pulled out',
     filterLabel: 'Filter by tag',
     all: 'All',
     tagHint: (tag, n, all, href) => `${pl(n, 'card')} behind the “${tag}” guide card. <a href="${href}">Show all ${all}</a> in this drawer.`,
@@ -137,7 +144,6 @@ window.I18N = (() => {
     searchAside: (n) => `from ${pl(n, 'drawer')}<span class="wide">; red flags show how many in each</span>`,
     notFound: (q) => `Nothing found for “${q}”.`,
     notFoundHint: 'Names, Chinese and English summaries, tags and languages are all searchable. Try other words.',
-    inboxKicker: 'New cards not yet in a drawer',
     inboxIntro: 'The daily sync drops newly starred repos into this basket first, with their GitHub description and topics. They move into drawers when the owner asks Claude to file them. Cards in the basket still show up in search.',
     inboxEmpty: 'The basket is empty: every card has been filed.',
 
@@ -164,6 +170,16 @@ window.I18N = (() => {
     putBack: 'Put it back',
     relSame: 'Similar subjects in this drawer',
     relOther: 'Similar subjects in other drawers',
+
+    // read out by screen readers when the page changes, instead of the whole panel
+    said: {
+      home: 'Back at the cabinet',
+      drawer: (name, n) => `Opened “${name}”, ${pl(n, 'card')}`,
+      tag: (tag, n) => `“${tag}” guide card, ${pl(n, 'card')}`,
+      search: (q, n, k) => (n ? `Search “${q}”: ${pl(n, 'card')} from ${pl(k, 'drawer')}` : `Search “${q}”: nothing found`),
+      inbox: (n) => `Unfiled: ${pl(n, 'card')}`,
+      card: (name) => `Card: ${name}`,
+    },
   };
 
   return { zh, en };
