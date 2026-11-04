@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-view="loading">
+<button type="button" class="skip" id="skip">跳到卡片列表</button>
 <header class="top">
   <div class="lang" role="group" aria-label="语言 / Language"><button type="button" data-lang="zh" lang="zh-CN" aria-pressed="true">中文</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div>
   <div class="ttl">
@@ -25,7 +26,8 @@
 </header>
 <main class="layout">
   <div class="cab-col"><svg id="floor" aria-hidden="true"></svg><svg id="cabinet" role="group" aria-label="目录柜：每个抽屉是一个分类"></svg></div>
-  <section id="panel" class="panel" aria-live="polite"></section>
+  <section id="panel" class="panel"></section>
+  <p id="status" class="sr-only" role="status"></p>
   <div id="loading" class="loading" role="status"><div class="ld-msg"><p>正在打开柜子……</p></div></div>
 </main>
 <footer id="foot" class="foot"></footer>

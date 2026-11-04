@@ -16,6 +16,7 @@ The whole site is an old library card catalogue:
 - **Guide cards**: in an open drawer, filter by tag (only "Paper Writing", say). Every tag that at least two of the drawer's cards share gets a guide card. The links at the top right sort by stars, date starred or last update
 - **Search**: repo names, Chinese and English summaries, tags and programming languages are all searchable; press `/` to start. Drawers with matches get a small red flag showing how many
 - **Card details**: click a card to see the full record, a stamp with the date it was starred, whether the repo is still maintained, and other stars on similar subjects. Press `Esc` to put it back
+- **Keyboard**: the first Tab brings up "Skip to the cards", which skips the drawers; Enter opens a drawer or a card and `Esc` puts it back. Screen readers hear one line per change, such as "Opened “Content Creation”, 16 cards"
 - **Unfiled**: newly starred repos land in a wire basket first, and a note pinned to the top of the cabinet says how many are waiting
 - **Chinese and English**: switch with 中文 / EN at the top right. On your first visit the site follows your browser's language, and after that it remembers the one you picked. Category names, summaries and tags come in both languages, and search finds either language whichever one is showing
 - On phones the drawers sit in two columns and open full screen. The URL keeps the open drawer, filter, search and language, so any view can be bookmarked or shared
@@ -35,6 +36,7 @@ New stars go into the Unfiled basket first, with GitHub's own description and to
 | `site/app.js` | Interaction and state (kept in the URL) |
 | `site/i18n.js` | Interface text in Chinese and English |
 | `site/fonts/` | Self-hosted fonts: LXGW WenKai (OFL) and Kevin Serif (MIT) |
+| `DESIGN.md` | How the site looks and behaves: colours, type, motion, keyboard and screen readers |
 | `data/stars.json` | The synced star list; don't edit it by hand |
 | `data/classification.json` | Categories, tags and summaries in both languages; edited by hand |
 | `scripts/sync_stars.py` | Fetches the star list |

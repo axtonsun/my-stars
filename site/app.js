@@ -125,6 +125,7 @@
     $('#q').placeholder = t.placeholder;
     $('#q').setAttribute('aria-label', t.search);
     $('#cabinet').setAttribute('aria-label', t.cabinet);
+    $('#skip').textContent = t.skip;
     document.querySelectorAll('.lang [data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === S.l)));
     if (!D) {
       $('#sub').textContent = t.tagline;
@@ -133,7 +134,7 @@
     }
     const n = D.order.length, total = D.repos.length;
     $('#sub').textContent = t.sub(n, total);
-    $('#foot').innerHTML = `${esc(t.foot(n, total, t.date(D.synced)))} · <a href="https://github.com/${esc(D.user)}?tab=stars" target="_blank" rel="noopener">${esc(t.allOnGitHub)}</a>`;
+    $('#foot').innerHTML = `${esc(t.foot(t.date(D.synced)))} · <a href="https://github.com/${esc(D.user)}?tab=stars" target="_blank" rel="noopener">${esc(t.allOnGitHub)}</a>`;
     drawCabinet();
     SHOWN = S.l;
   }
@@ -468,7 +469,7 @@
   }
   function card(r, o = {}) {
     const hl = o.hl || esc, c = D.cats[r.cat], rot = ((hash(r.full_name) % 100) / 100 - 0.5).toFixed(2), t = T();
-    return `<li style="--rot:${rot}deg"><a class="card" href="${href({ r: r.full_name })}">
+    return `<li style="--rot:${rot}deg"><a class="card" href="${href({ r: r.full_name })}" data-r="${esc(r.full_name)}">
       <span class="row1"><span class="no">${esc(r.no)}</span><span class="nm">${hl(r.name)}</span><span class="st">★ ${kfmt(r.stars)}</span>${o.chip ? `<span class="chip" style="--c:${c.color}">${esc(cname(c).split(' & ')[0])}</span>` : ''}</span>
       <span class="sm">${hl(summary(r))}</span>
       <span class="ft">${hl(r.tags.map(tag).join(' · '))}<i>${esc(r.owner)} · ${esc(r.language || t.noLang)} · ${esc(t.starredOn(dot(r.starred_at)))}</i></span>
@@ -482,19 +483,19 @@
     pushed: (a, b) => (b.pushed_at || '').localeCompare(a.pushed_at || ''),
   }[k]);
   const back = (label) => `<a class="back" href="${href({ c: '', t: '', s: '', q: '', r: '' })}">← ${label}</a>`;
-  const head = (kicker, title, aside = '') => `<header class="ph">${back(T().back)}<p class="kicker">${kicker}</p><div class="ph-row"><h2>${title}</h2>${aside}</div></header>`;
+  const head = (kicker, title, aside = '') => `<header class="ph">${back(T().back)}${kicker ? `<p class="kicker">${kicker}</p>` : ''}<div class="ph-row"><h2 tabindex="-1">${title}</h2>${aside}</div></header>`;
 
   function home() {
     const t = T(), list = [...D.repos].sort(sortBy('starred')).slice(0, 12);
-    return head(t.homeKicker, t.homeTitle, `<span class="aside">${t.homeAside}</span>`) + `<div class="tray">${cards(list, { chip: true })}</div>`;
+    return head('', t.homeTitle, `<span class="aside">${t.homeAside}</span>`) + `<div class="tray">${cards(list, { chip: true })}</div>`;
   }
 
-  // the part of a drawer above its tray: kicker and sort links, the drawer's name, its description.
-  // The sort links share the kicker's line so long names keep a line to themselves.
+  // the part of a drawer above its tray: the sort links, the drawer's name, its description.
+  // The sort links have a line of their own above the name, so long names keep a line to themselves.
   function lid(id) {
     const t = T(), c = D.cats[id], sort = S.s || 'stars';
     const sorter = `<span class="sort" role="group" aria-label="${t.sortLabel}">${SORTS.map((k) => `<a href="${href({ s: k === 'stars' ? '' : k })}"${k === sort ? ' aria-current="true"' : ''}>${t.sorts[k]}${k === sort ? ' ↓' : ''}</a>`).join('')}</span>`;
-    return `<div class="lid"><header class="ph">${back(t.back)}<div class="ph-row"><p class="kicker">${t.drawerKicker}</p>${sorter}</div><h2>${esc(cname(c))}</h2></header><p class="desc">${esc(cdesc(c))}</p></div>`;
+    return `<div class="lid"><header class="ph">${back(t.back)}<div class="ph-row">${sorter}</div><h2 tabindex="-1">${esc(cname(c))}</h2></header><p class="desc">${esc(cdesc(c))}</p></div>`;
   }
 
   function drawer() {
@@ -531,7 +532,7 @@
 
   function inbox() {
     const t = T(), list = inCat(INBOX).sort(sortBy('starred'));
-    return head(t.inboxKicker, t.inbox, `<span class="aside">${t.cards(list.length)}</span>`) + `<p class="desc">${t.inboxIntro}</p>` +
+    return head('', t.inbox, `<span class="aside">${t.cards(list.length)}</span>`) + `<p class="desc">${t.inboxIntro}</p>` +
       `<div class="tray basket">${list.length ? cards(list) : `<div class="empty"><p>${t.inboxEmpty}</p></div>`}</div>`;
   }
 
@@ -549,7 +550,7 @@
     const sum = summary(r);
     return `<header class="ph">${back(t.back)}</header>
       <article class="catcard" style="--rot:-1.1deg">
-        <div class="cc-top"><div class="cc-no"><small>${t.callNo}</small><b>${esc(r.no)}</b></div><h2>${esc(r.name)}</h2><a class="cc-cat" href="${href({ r: '', q: '', c: r.cat, t: '' })}">${esc(cname(c))}</a></div>
+        <div class="cc-top"><div class="cc-no"><small>${t.callNo}</small><b>${esc(r.no)}</b></div><h2 tabindex="-1">${esc(r.name)}</h2><a class="cc-cat" href="${href({ r: '', q: '', c: r.cat, t: '' })}">${esc(cname(c))}</a></div>
         <p class="cc-by"><span>${esc(t.by(r.owner))} · ${esc(r.language || t.noLangLong)} · ${esc(lic)} · Fork ${r.forks.toLocaleString()}</span><span class="cc-st">★ ${r.stars.toLocaleString()}</span></p>
         <p class="cc-sum">${esc(sum)}</p>
         ${r.description && r.description !== sum ? `<p class="cc-desc">${esc(r.description)}</p>` : ''}
@@ -569,7 +570,51 @@
   // the bar; the observer catches later changes, one frame late so it doesn't resize what it watches.
   const fitBar = (g) => g.classList.toggle('has-bar', g.offsetHeight - g.clientHeight > 2);
   const tabBar = new ResizeObserver(([e]) => requestAnimationFrame(() => fitBar(e.target)));
+  // What a screen reader says when the page changes: a line about it, not the whole panel (index.html #status). While a
+  // search is being typed, it waits for the typing to stop.
+  let SAID = '', SAYING = 0;
+  function say(v) {
+    const t = T().said, c = D.cats[S.c];
+    let s = t.home;
+    if (v === 'search') { const res = D.repos.filter((r) => matches(r)); s = t.search(S.q.trim(), res.length, new Set(res.map((r) => r.cat)).size); }
+    else if (v === 'drawer') s = S.t ? t.tag(tag(S.t), inCat(S.c).filter((r) => r.tags.includes(S.t)).length) : t.drawer(cname(c), c.count);
+    else if (v === 'inbox') s = t.inbox(c.count);
+    else if (v === 'card') s = t.card(D.byName[S.r].name);
+    clearTimeout(SAYING);
+    SAYING = setTimeout(() => { if (s !== SAID) $('#status').textContent = SAID = s; }, v === 'search' ? 600 : 50);
+  }
+
+  // Where the keyboard goes once the panel has been made again (the element it was on is gone). `a` had the focus, and
+  // `was` is what was shown before. Typing a search or switching language leaves it where it is; a sort link or a tag tab
+  // goes to the one now picked; putting a card back goes to that card, and shutting a drawer to that drawer in the
+  // cabinet, once it is back in; anything else goes to the panel's heading. Only after a key press: KEYS says the last
+  // thing used was the keyboard, not a mouse or a finger, which leave the focus alone.
+  let KEYS = false;
+  function refocus(a, was, v) {
+    if (!KEYS || !a || a === $('#q') || a.closest('.lang') || a.closest('#overlay .gtab')) return;
+    const panel = $('#panel'), wide = !phone.matches;
+    const put = (el) => el && el.focus({ preventScroll: wide && el.tagName === 'H2' });
+    if (a.closest('.sort')) return put(panel.querySelector('.sort [aria-current]'));
+    if (a.closest('.guides')) return put(panel.querySelector('.guides [aria-current]'));
+    if (was.v === 'card' && v !== 'card') {
+      const back = [...panel.querySelectorAll('a.card')].find((e) => e.dataset.r === was.r);
+      if (back) return put(back);
+    }
+    if (v === 'home' && (was.v === 'drawer' || was.v === 'card') && was.c && was.c !== INBOX) {
+      const id = was.c, t0 = performance.now();
+      const shut = () => {
+        const g = [...document.querySelectorAll('#cabinet > .drawer')].find((e) => e.dataset.cat === id);
+        if (g && !OUT.has(id)) g.focus({ preventScroll: wide });
+        else if (performance.now() - t0 < 1500 && view() === 'home') requestAnimationFrame(shut);
+      };
+      return shut();
+    }
+    put(panel.querySelector('h2'));
+  }
+
+  let PREV = null;
   function render() {
+    const focused = document.activeElement, was = PREV;
     if (S.l !== SHOWN) chrome();
     const v = view();
     document.body.dataset.view = v;
@@ -587,6 +632,10 @@
     if (g) { fitBar(g); tabBar.observe(g, { box: 'border-box' }); }
     const c = v === 'drawer' || v === 'inbox' ? cname(D.cats[S.c]) : v === 'card' ? D.byName[S.r].name : v === 'search' ? T().searchKicker(S.q.trim()) : '';
     document.title = (c ? c + ' · ' : '') + T().docTitle(D.user);
+    // only when what is shown has changed: not when the same page is made again for a new width or language
+    const key = [v, S.c, S.t, S.s, S.q, S.r].join('|');
+    PREV = { v, r: S.r, c: S.c, key };
+    if (was && was.key !== key) { say(v); refocus(focused, was, v); }
   }
 
   function bind() {
@@ -620,6 +669,17 @@
     // on a touch screen, dragging a handle or a foot moves it, not the page
     cab.addEventListener('touchmove', (e) => { if (DRAG || HOLD) e.preventDefault(); }, { passive: false });
     cab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e.target); } });
+    // The window losing focus mid-drag (another window brought up, say) counts as letting go, so a drawer or the cabinet
+    // isn't left stuck to the pointer when the button comes up somewhere the page never hears of.
+    addEventListener('blur', () => {
+      const at = { type: 'blur', timeStamp: performance.now() };
+      if (DRAG) { try { cab.releasePointerCapture(DRAG.pid); } catch {} release({ ...at, pointerId: DRAG?.pid }); }
+      if (HOLD) { try { cab.releasePointerCapture(HOLD.pid); } catch {} dropFoot({ ...at, pointerId: HOLD?.pid }); }
+    });
+    addEventListener('keydown', () => { KEYS = true; }, true);
+    addEventListener('pointerdown', () => { KEYS = false; }, true);
+    // the skip button (the first stop for the Tab key) goes past the drawers to the panel
+    $('#skip').addEventListener('click', () => $('#panel h2')?.focus());
     // a plain mouse wheel over the tag tabs scrolls them sideways (trackpads scroll sideways already)
     $('#panel').addEventListener('wheel', (e) => {
       const g = e.target.closest('.guides');
@@ -692,6 +752,7 @@
     document.body.dataset.view = 'loading';
     $('.layout').append(ld);
     ld.classList.add('failed');
-    $('.ld-msg').innerHTML = `<p>${esc(T().loadFail(err.message))}</p><p>${T().retry}</p>`;
+    $('.ld-msg').innerHTML = `<p>${esc(T().loadFail)}</p><p>${esc(err.message)}</p><button type="button" class="btn2 ld-retry">${esc(T().reload)}</button>`;
+    $('.ld-retry').addEventListener('click', () => location.reload());
   });
 })();
