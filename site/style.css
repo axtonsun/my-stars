@@ -50,7 +50,13 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 
 /* ---------- layout ---------- */
 .layout { max-width: 1440px; margin: 0 auto; padding: 0 56px; display: grid; grid-template-columns: minmax(0, 812fr) minmax(340px, 540fr); gap: 40px; align-items: start; }
-#cabinet { display: block; width: 100%; height: auto; overflow: visible; }
+.cab-col { position: relative; }
+#cabinet { position: relative; display: block; width: 100%; height: auto; }
+/* the shadows on the floor, in their own <svg> under the cabinet's (the same size), so they stay put when it tips */
+#floor { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+/* The cabinet keeps a compositing layer of its own, so tipping it over a foot (app.js) doesn't make and drop one, which
+   would mean drawing it all again, each time. */
+#cabinet { will-change: transform; }
 .drawer { cursor: pointer; outline: none; }
 .drawer .hov { fill: #fff; opacity: 0; transition: opacity .15s; }
 .drawer:hover .hov { opacity: .14; }
@@ -61,10 +67,8 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 /* the handle: grab it to drag the drawer out or back in (app.js) */
 .grip { fill: #fff; opacity: 0; cursor: grab; touch-action: none; }
 body.dragging, body.dragging * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
-/* the feet: pull one in towards the middle to lift that side of the cabinet (app.js). While it is up, the whole
-   picture gets a layer of its own, so tipping it doesn't draw it again. */
+/* the feet: pull one in towards the middle to lift that side of the cabinet (app.js) */
 .leg { fill: #fff; opacity: 0; cursor: grab; touch-action: none; }
-body.lifting #cabinet { will-change: transform; }
 /* the guide tabs in a pulled drawer: each picks its tag, like the tag tabs in the panel */
 .gtab { cursor: pointer; outline: none; }
 .gtab .hit { fill: #fff; opacity: 0; }
