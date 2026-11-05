@@ -46,7 +46,7 @@ window.I18N = (() => {
     lift: '按住柜脚往里拖，把柜子抬起来',
 
     back: '柜子',
-    sorts: { stars: 'Star', starred: '收藏时间', pushed: '最近更新' },
+    sorts: { stars: '星标数', starred: '收藏时间', pushed: '最近更新' },
     sortLabel: '排序',
     homeTitle: '最近收进来的',
     homeAside: '点抽屉拉开，也可以拽住把手往外拉',
