@@ -162,9 +162,9 @@ window.Draw = (() => {
   }
 
   // an invisible patch over each foot, a little bigger than it, to grab it by and lift that side of the cabinet (app.js)
-  function legGrips(L, label) {
+  function legGrips(L) {
     const { by, fb, fw, xs } = feet(L);
-    return ['l', 'r'].map((side) => `<rect class="leg" data-side="${side}" x="${xs[side] - 8}" y="${by}" width="${fw + 16}" height="${fb - by + 6}"><title>${esc(label)}</title></rect>`).join('');
+    return ['l', 'r'].map((side) => `<rect class="leg" data-side="${side}" x="${xs[side] - 8}" y="${by}" width="${fw + 16}" height="${fb - by + 6}"/>`).join('');
   }
 
   // How high a foot can be lifted: enough to tip the cabinet about 3 degrees, and no more than 36 on the big cabinet.
@@ -235,14 +235,14 @@ window.Draw = (() => {
   }
 
   // the cabinet body and every drawer, closed; each drawer is its own button. Each front is drawn from its own seed, so
-  // pulled() draws it stroke for stroke the same and a drawer starting to come out doesn't flicker. `lift` is the tooltip
-  // on the feet. The shadows on the floor (`floor`) go in an <svg> of their own under the cabinet's, so that the cabinet
-  // can tip over a foot while they stay put.
-  function cabinet(drawers, cols, lift) {
+  // pulled() draws it stroke for stroke the same and a drawer starting to come out doesn't flicker. The shadows on the
+  // floor (`floor`) go in an <svg> of their own under the cabinet's, so that the cabinet can tip over a foot while they
+  // stay put.
+  function cabinet(drawers, cols) {
     const L = layout(drawers.length, cols), { dw, dh } = L;
     seed('cabinet-' + cols);
     SEEN.clear();
-    let s = defs() + art(carcass(L), L.X - 20, L.Y - 18, L.W + 40, L.H + L.foot + 22) + legGrips(L, lift);
+    let s = defs() + art(carcass(L), L.X - 20, L.Y - 18, L.W + 40, L.H + L.foot + 22) + legGrips(L);
     drawers.forEach((d, i) => {
       const [x, y] = L.cells[i];
       seed('front:' + d.id);

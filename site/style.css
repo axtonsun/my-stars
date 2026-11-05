@@ -95,6 +95,9 @@ h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacin
 body.dragging, body.dragging * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 /* the feet: pull one in towards the middle to lift that side of the cabinet (app.js) */
 .leg { fill: #fff; opacity: 0; cursor: grab; touch-action: none; }
+/* the hint for a foot or a handle: a slip of card by the one the mouse rests on (app.js places it). It comes and goes
+   at once, like a tooltip, with no fade. */
+.slip { position: absolute; z-index: 1; width: max-content; max-width: 70%; margin: 0; padding: 3px 10px; background: var(--card); border: 1px solid var(--ink); box-shadow: 0 3px 8px rgba(59, 42, 24, .18); font-size: 13px; line-height: 20px; color: var(--ink); pointer-events: none; transform: rotate(-1deg); }
 /* the guide tabs in a pulled drawer: each picks its tag, like the tag tabs in the panel */
 .gtab { cursor: pointer; outline: none; }
 .gtab .hit { fill: #fff; opacity: 0; }

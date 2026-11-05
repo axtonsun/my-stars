@@ -44,6 +44,7 @@ window.I18N = (() => {
     flag: (n) => `${n} 张`,
     note: (n) => `待归档 ${n} 张`,
     lift: '按住柜脚往里拖，把柜子抬起来',
+    grip: { shut: '按住把手往下拖，把抽屉拉出来', part: '按住把手上下拖，抽屉跟着进出', out: '按住把手往上拖，把抽屉推回去' },
 
     back: '柜子',
     sorts: { stars: '星标数', starred: '收藏时间', pushed: '最近更新' },
@@ -131,6 +132,7 @@ window.I18N = (() => {
     flag: (n) => String(n),
     note: (n) => `${n} unfiled`,
     lift: 'Drag a foot inwards to lift the cabinet',
+    grip: { shut: 'Drag the handle down to pull the drawer out', part: 'Drag the handle up or down to move the drawer', out: 'Drag the handle up to push the drawer back in' },
 
     back: 'Cabinet',
     sorts: { stars: 'Stars', starred: 'Starred', pushed: 'Updated' },

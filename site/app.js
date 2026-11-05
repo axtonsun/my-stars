@@ -145,8 +145,9 @@
   const drawerOf = (id) => { const c = D.cats[id], name = cname(c); return { ...c, name, label: T().drawer(name, c.count), closeLabel: T().close(name) }; };
   function drawCabinet() {
     const cols = phone.matches ? 2 : 4;
-    const { svg, floor, L } = Draw.cabinet(D.order.map(drawerOf), cols, T().lift);
+    const { svg, floor, L } = Draw.cabinet(D.order.map(drawerOf), cols);
     const el = $('#cabinet');
+    hint(null);
     for (const e of [el, $('#floor')]) e.setAttribute('viewBox', `0 0 ${L.vw} ${L.vh}`);
     $('#floor').innerHTML = floor;
     el.innerHTML = svg + '<g id="overlay"></g>';
@@ -159,6 +160,7 @@
     if (open && !OUT.has(open)) OUT.set(open, { p: 0 });
     for (const [id] of OUT) if (DRAG?.id !== id) slide(id, id !== open ? 0 : LEFT.id === id ? LEFT.p : 1);
     tidy();
+    hint(null);
     document.querySelectorAll('#cabinet > .drawer').forEach((g) => g.classList.toggle('is-open', OUT.has(g.dataset.cat)));
     let s = '';
     if (v === 'search') {
@@ -439,6 +441,36 @@
     TIP.slid = false;
   }
 
+  /* ---------- hints for the pointer ---------- */
+  // A mouse resting on a foot or a drawer's handle brings up a slip of card saying what dragging it does: beside a foot,
+  // on the side it is pulled to; under a handle (over it, near the bottom of the window), saying which way that drawer
+  // can go. The browser's own tooltip (a <title>) waits a second or more, and starts waiting again at the slightest
+  // move, so the page shows its own, HINT ms after the pointer comes onto one. It goes when the pointer leaves or
+  // presses, or the cabinet is drawn again, and doesn't come while anything is being dragged or moving. Once a foot or
+  // handle has been pressed, its hint stays away (QUIET) until the pointer has been somewhere else. Touch has no hover,
+  // so none there.
+  const HINT = 300;
+  let HINTING = 0, QUIET = '';
+  // which foot or which drawer's handle `g` is
+  const gripKey = (g) => (!g ? '' : g.dataset.side ? 'foot:' + g.dataset.side : 'drawer:' + g.closest('[data-cat]').dataset.cat);
+  const moving = () => DRAG || HOLD || [...OUT.values()].some((o) => o.t0 != null) || $('.cab-col').getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+  function hint(g) {
+    clearTimeout(HINTING);
+    const el = $('#slip');
+    el.hidden = true;
+    if (!g) return;
+    HINTING = setTimeout(() => {
+      if (!g.isConnected || moving()) return;
+      const t = T(), side = g.dataset.side, p = g.closest('.pulled') ? OUT.get(g.closest('[data-cat]').dataset.cat)?.p ?? 0 : 0;
+      el.textContent = side ? t.lift : t.grip[p < 0.01 ? 'shut' : p > 0.99 ? 'out' : 'part'];
+      el.hidden = false;
+      const c = el.parentNode.getBoundingClientRect(), r = g.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+      const x = side === 'l' ? r.right + 2 : side === 'r' ? r.left - 2 - w : Math.min(c.right - w, Math.max(c.left, (r.left + r.right - w) / 2));
+      const y = side ? (r.top + r.bottom - h) / 2 : r.bottom + 4 + h > innerHeight ? r.top - 4 - h : r.bottom + 4;
+      Object.assign(el.style, { left: x - c.left + 'px', top: y - c.top + 'px' });
+    }, HINT);
+  }
+
   /* ---------- pictures of the textures ---------- */
   // The cabinet shows its pencil textures as pictures (Draw.bake), drawn for the size it is shown at on this screen.
   // bake() draws whatever the cabinet now wants; when that leaves the cabinet out of date, it is drawn again, as soon
@@ -658,6 +690,16 @@
     // or drag a drawer out (or back in) by its handle, or lift the cabinet by a foot
     cab.addEventListener('pointerdown', grab);
     cab.addEventListener('pointerdown', grabFoot);
+    // a mouse resting on a foot or a handle brings up its hint (see hint())
+    cab.addEventListener('pointerover', (e) => {
+      if (DRAG || HOLD || e.pointerType === 'touch') return;
+      const g = e.target.closest('.leg, .grip');
+      if (gripKey(g) !== QUIET) QUIET = '';
+      if (g && !QUIET) hint(g);
+    });
+    cab.addEventListener('pointerout', (e) => { if (e.target.closest('.leg, .grip')) hint(null); });
+    cab.addEventListener('pointerleave', () => { QUIET = ''; });
+    cab.addEventListener('pointerdown', (e) => { hint(null); QUIET = gripKey(e.target.closest('.leg, .grip')); });
     addEventListener('pointermove', drag);
     addEventListener('pointermove', pullFoot);
     addEventListener('pointerup', release);
@@ -714,6 +756,7 @@
     new ResizeObserver(() => {
       document.documentElement.style.setProperty('--cab-h', cab.getBoundingClientRect().height + 'px');
       fitLid();
+      hint(null);
       // a bigger cabinet wants bigger pictures
       clearTimeout(resized);
       resized = setTimeout(bake, 400);
@@ -736,7 +779,7 @@
   const SHOW = 3000;
   const shown = new Promise((ok) => setTimeout(ok, Math.max(0, SHOW - performance.now())));
   const baked = load().then(() => {
-    Draw.cabinet(D.order.map(drawerOf), phone.matches ? 2 : 4, '');
+    Draw.cabinet(D.order.map(drawerOf), phone.matches ? 2 : 4);
     return Promise.race([Draw.bake(Math.min(3, devicePixelRatio * 1.1)), new Promise((ok) => setTimeout(ok, Math.max(500, SHOW - performance.now())))]);
   });
   Promise.all([baked, shown]).then(async () => {
