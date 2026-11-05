@@ -35,7 +35,7 @@ GitHub Actions 每天北京时间 04:17 自动拉取一次 Star 列表并重新�
 | `site/draw.js` | 用 SVG 画手绘风格的柜子 |
 | `site/app.js` | 交互和状态（记在网址里） |
 | `site/i18n.js` | 界面上的中英文文字 |
-| `site/fonts/` | 自托管字体：霞鹜文楷（OFL）、Kevin Serif（MIT） |
+| `site/fonts/` | 自托管字体：思源宋体 Noto Serif SC、Newsreader（都是 OFL） |
 | `DESIGN.md` | 网站的样子和规矩：配色、字体、动画、键盘和读屏 |
 | `data/stars.json` | 自动同步的 Star 列表，不要手改 |
 | `data/classification.json` | 分类、标签和中英文简介，可以手改 |

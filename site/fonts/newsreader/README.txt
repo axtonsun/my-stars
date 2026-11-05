@@ -1,0 +1,1 @@
+Newsreader v1.003, variable in weight (200-800) and optical size (6-72), © 2020 The Newsreader Project Authors, from the @fontsource-variable/newsreader 5.3.0 package (SIL OFL 1.1, see OFL.txt). Latin and Latin Extended, upright only.

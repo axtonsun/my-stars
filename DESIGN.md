@@ -40,8 +40,10 @@ Text has to reach WCAG AA against what is actually behind it: 4.5:1 for normal t
 
 ## Type
 
-- **LXGW WenKai** (霞鹜文楷), regular and bold, for Chinese and the interface. Self-hosted in `site/fonts/lxgw/`, split into pieces by `unicode-range` so a page only downloads the characters it shows.
-- **Kevin Serif** for Latin repo names, numbers and the English title (`--latin`).
+- **Newsreader** for every Latin letter and figure, in both languages. It is variable in weight and optical size, so small text gets sturdier shapes on its own. Self-hosted in `site/fonts/newsreader/`, upright only.
+- **Noto Serif SC** (思源宋体), regular and bold, for Chinese. Self-hosted in `site/fonts/noto-serif-sc/`, split into pieces by `unicode-range` so a page only downloads the characters it shows.
+- Every stack puts Newsreader first and Noto Serif SC after it, so Latin words inside Chinese text are Newsreader too. `--latin` is for words that are Latin whatever the page's language (repo names, counts, GitHub's descriptions); `--text` is for the rest. When the page is in Chinese, `--text` first takes the quotes, dash and ellipsis (“” ‘’ — …) from Noto Serif SC (the face `Noto Serif SC Punct`), a full character wide, so the Chinese ellipsis …… sits in the middle of the line, not on the baseline as Newsreader's does.
+- Words drawn in the cabinet's SVG take the page's fonts; `draw.js` names no font.
 - No other faces, and nothing from a CDN or Google Fonts (the owner is in China).
 - Body text is 16px and nothing new goes below 12px. The few smaller ones are labels on things in the picture: the 11px "call no." on a card, the 11px "new" stamp in English, and each drawer's card count in the corner of its label.
 - Headings use `text-wrap: balance` and paragraphs `text-wrap: pretty`.
