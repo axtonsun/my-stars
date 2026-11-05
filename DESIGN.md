@@ -60,6 +60,7 @@ Text has to reach WCAG AA against what is actually behind it: 4.5:1 for normal t
 - Movement is physical: drawers slide out easing off and go back in gathering speed; the cabinet falls under gravity. No generic fades or slide-ins on content.
 - Move things with CSS transforms and Web Animations, never by drawing the cabinet again each frame. Keep new filtered (pencil) drawing out of the cabinet, or put it through `art()` in `draw.js` so it is drawn once into a picture.
 - Every animation has a `prefers-reduced-motion` path that keeps the end state and drops the movement.
+- The hint on the feet is a slip of card the page draws (`#lift`), not the browser's own `title` tooltip, which waits a second or more and starts over at the slightest move. It shows 0.3 s after a mouse comes to rest on a foot, on the floor beside it on the side the foot is pulled to, and comes and goes at once, like a tooltip.
 
 ## Keyboard and screen readers
 

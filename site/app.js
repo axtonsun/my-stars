@@ -145,8 +145,9 @@
   const drawerOf = (id) => { const c = D.cats[id], name = cname(c); return { ...c, name, label: T().drawer(name, c.count), closeLabel: T().close(name) }; };
   function drawCabinet() {
     const cols = phone.matches ? 2 : 4;
-    const { svg, floor, L } = Draw.cabinet(D.order.map(drawerOf), cols, T().lift);
+    const { svg, floor, L } = Draw.cabinet(D.order.map(drawerOf), cols);
     const el = $('#cabinet');
+    footHint(null);
     for (const e of [el, $('#floor')]) e.setAttribute('viewBox', `0 0 ${L.vw} ${L.vh}`);
     $('#floor').innerHTML = floor;
     el.innerHTML = svg + '<g id="overlay"></g>';
@@ -385,6 +386,23 @@
       setTimeout(() => { SWALLOW = false; });
     }
     drop();
+  }
+  // The hint for the feet: a slip of card on the floor beside the foot a mouse rests on, saying it can be pulled in. The
+  // browser's own tooltip (an SVG <title>) waits a second or more, and starts waiting again at the slightest move, so
+  // the page shows its own, HINT ms after the pointer comes onto a foot. It goes when the pointer leaves or presses, and
+  // doesn't come while the cabinet is held up or falling. Touch has no hover, so none there.
+  const HINT = 300;
+  let HINTING = 0;
+  function footHint(side) {
+    clearTimeout(HINTING);
+    const el = $('#lift');
+    if (!side) { el.hidden = true; return; }
+    HINTING = setTimeout(() => {
+      if (HOLD || DRAG || $('#cabinet').getAnimations().length) return;
+      el.textContent = T().lift;
+      Object.assign(el.style, Draw.hintAt(CAB.L, side));
+      el.hidden = false;
+    }, HINT);
   }
   // let go: the cabinet falls under gravity and bounces off the floor, worked out in steps of 2 ms
   function drop() {
@@ -658,6 +676,9 @@
     // or drag a drawer out (or back in) by its handle, or lift the cabinet by a foot
     cab.addEventListener('pointerdown', grab);
     cab.addEventListener('pointerdown', grabFoot);
+    cab.addEventListener('pointerdown', () => footHint(null));
+    cab.addEventListener('pointerover', (e) => { const g = e.target.closest('.leg'); if (g && e.pointerType !== 'touch') footHint(g.dataset.side); });
+    cab.addEventListener('pointerout', (e) => { if (e.target.closest('.leg')) footHint(null); });
     addEventListener('pointermove', drag);
     addEventListener('pointermove', pullFoot);
     addEventListener('pointerup', release);
@@ -736,7 +757,7 @@
   const SHOW = 3000;
   const shown = new Promise((ok) => setTimeout(ok, Math.max(0, SHOW - performance.now())));
   const baked = load().then(() => {
-    Draw.cabinet(D.order.map(drawerOf), phone.matches ? 2 : 4, '');
+    Draw.cabinet(D.order.map(drawerOf), phone.matches ? 2 : 4);
     return Promise.race([Draw.bake(Math.min(3, devicePixelRatio * 1.1)), new Promise((ok) => setTimeout(ok, Math.max(500, SHOW - performance.now())))]);
   });
   Promise.all([baked, shown]).then(async () => {
