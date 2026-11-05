@@ -131,11 +131,10 @@ window.Draw = (() => {
   // the same, with the art as a picture once there is one (see bake())
   const frontBaked = (x, y, dw, dh, d, lp) => art(frontArt(x, y, dw, dh, d), x - 4, y - 4, dw + 8, dh + 8) + frontText(x, y, dw, dh, d, lp);
 
-  // where the feet stand: the plinth's top `by` (it is `ph` high), the floor `fb`, each foot `fw` wide, its left edge at
-  // xs.l or xs.r
+  // where the feet stand: the plinth's top `by`, the floor `fb`, each foot `fw` wide, its left edge at xs.l or xs.r
   function feet(L) {
     const { W, X } = L, by = L.Y + L.H, fw = W < 400 ? 22 : 30;
-    return { by, ph: 10, fb: by + L.foot, fw, xs: { l: X + 6, r: X + W - 6 - fw } };
+    return { by, fb: by + L.foot, fw, xs: { l: X + 6, r: X + W - 6 - fw } };
   }
 
   // the shadows on the floor: a faint one under the whole cabinet and one under each foot (tipped() fades a raised one's)
@@ -153,7 +152,7 @@ window.Draw = (() => {
     s += `<rect x="${X}" y="${Y + 10}" width="${W}" height="${H - 10}" fill="#b98c5e"/>` + fillRect(X, Y + 10, W, H - 10, TEA, { op: 0.7 }) + box(X, Y + 10, W, H - 10, { w: 1.4 });
     for (let i = 0; i < H / 18; i++) { const yy = Y + 20 + R() * (H - 30); s += line(X + 6, yy, X + W - 6, yy + j(3), { w: 0.5, op: 0.25, color: '#3b2413' }); }
     // the plinth and two tapered feet
-    const { by, ph, fb, fw, xs } = feet(L);
+    const { by, fb, fw, xs } = feet(L), ph = 10;
     for (const x0 of [xs.l, xs.r]) {
       const leg = [[x0, by + ph], [x0 + fw, by + ph], [x0 + fw - 4, fb], [x0 + 4, fb]];
       s += `<path d="${shape(leg)}" fill="#9a6d43"/>` + pencil(shape(leg), TEA, { op: 0.8 }) + outline(leg, { w: 1.2 });
@@ -166,12 +165,6 @@ window.Draw = (() => {
   function legGrips(L) {
     const { by, fb, fw, xs } = feet(L);
     return ['l', 'r'].map((side) => `<rect class="leg" data-side="${side}" x="${xs[side] - 8}" y="${by}" width="${fw + 16}" height="${fb - by + 6}"/>`).join('');
-  }
-  // Where the hint for the `side` foot goes (app.js): on the floor just past its patch, on the side it is pulled to,
-  // level with the middle of the foot. As CSS for an element over the cabinet, in % of the cabinet's size.
-  function hintAt(L, side) {
-    const { by, ph, fb, fw, xs } = feet(L), pc = (v, of) => ((v / of) * 100).toFixed(3) + '%', top = pc((by + ph + fb) / 2, L.vh);
-    return side === 'l' ? { left: pc(xs.l + fw + 10, L.vw), right: '', top } : { left: '', right: pc(L.vw - xs.r + 10, L.vw), top };
   }
 
   // How high a foot can be lifted: enough to tip the cabinet about 3 degrees, and no more than 36 on the big cabinet.
@@ -412,5 +405,5 @@ window.Draw = (() => {
     return `<g class="note" data-nav="inbox" role="button" tabindex="0" aria-label="${esc(label)}"><g transform="rotate(-3 ${cx} ${cy + 16})"><rect x="${cx - 66}" y="${cy}" width="132" height="44" fill="${CREAM}"/>` + box(cx - 66, cy, 132, 44, { w: 0.9, once: true }) + text(cx, cy + 28, label, { size: 15, anchor: 'middle', color: RED }) + '</g>' + pin(cx, cy + 4, '#cf4e43') + '</g>';
   }
 
-  return { esc, hash, rng, cabinet, pulled, setPull, reach, rise, tipped, pivots, hintAt, shaken, bake, flag, dim, note, loader, INK, RED };
+  return { esc, hash, rng, cabinet, pulled, setPull, reach, rise, tipped, pivots, shaken, bake, flag, dim, note, loader, INK, RED };
 })();
