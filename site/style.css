@@ -58,10 +58,12 @@ body[data-view="loading"] .skip { display: none; }
 .ttl-row { display: flex; align-items: baseline; gap: 22px; flex-wrap: wrap; }
 h1 { margin: 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacing: .12em; }
 .alt { margin: 0; font-family: var(--latin); font-size: 21px; letter-spacing: .06em; color: #5d554c; }
-/* language switch: top right, the current language underlined in red */
-.lang { position: absolute; top: 30px; right: 56px; display: flex; gap: 14px; }
+/* language switch: top right, the current language underlined in red. Both buttons stand on one underline (flex-end).
+   Chinese characters are taller than Latin capitals and dip below the baseline, so EN on the same baseline looks
+   2px low: its smaller line height and larger bottom padding lift it until its middle is level with 中文's. */
+.lang { position: absolute; top: 30px; right: 56px; display: flex; align-items: flex-end; gap: 14px; }
 .lang button { padding: 0 0 1px; border: 0; border-bottom: 1px solid transparent; background: none; font: inherit; font-size: 14px; line-height: 1.4; color: var(--faint); cursor: pointer; }
-.lang button[lang="en"] { font-family: var(--latin); font-size: 13px; letter-spacing: .06em; }
+.lang button[lang="en"] { padding-bottom: 5px; font-family: var(--latin); font-size: 13px; line-height: 1.2; letter-spacing: .06em; }
 .lang button:hover { color: var(--ink); }
 .lang button[aria-pressed="true"] { color: var(--red); border-bottom-color: var(--red); cursor: default; }
 .sub { margin: 10px 0 0; font-size: 16px; color: var(--sub); }
@@ -271,7 +273,11 @@ html:lang(en) .ld-msg p, .failed .ld-msg p { letter-spacing: .04em; }
   h1 { font-size: 32px; }
   .alt { font-size: 15px; }
   .lang { top: 22px; right: 16px; }
-  h1 { margin-right: 76px; }
+  /* keep the language switch's corner clear at the end of the title row, so the alternate title can't sit under it
+     either (in English 「目录柜」 is short enough to share the title's line). On a line of its own, below the switch,
+     the alternate title stays on one line and may run into that space. */
+  .ttl-row { margin-right: 76px; }
+  .alt { white-space: nowrap; }
   html:lang(en) h1 { font-size: 26px; }
   .sub { font-size: 13.5px; margin-top: 6px; }
   .search { width: auto; }
