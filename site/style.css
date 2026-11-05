@@ -1,4 +1,11 @@
-@font-face { font-family: "Kevin Serif"; src: url("fonts/kevin/KevinSerif-Regular.woff2") format("woff2"); font-display: swap; }
+/* Newsreader for Latin letters and figures (variable: weight, and optical size, which follows the font size); Noto Serif SC
+   (fonts/noto-serif-sc/*.css, linked from index.html) for Chinese. */
+@font-face { font-family: "Newsreader"; src: url("fonts/newsreader/newsreader-latin-opsz-normal.woff2") format("woff2"); font-weight: 200 800; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Newsreader"; src: url("fonts/newsreader/newsreader-latin-ext-opsz-normal.woff2") format("woff2"); font-weight: 200 800; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+/* In Chinese text, the quotes, dash and ellipsis come from Noto Serif SC, a full character wide (Newsreader's are narrow,
+   and its ellipsis sits on the baseline): put first in --text when the page is in Chinese. */
+@font-face { font-family: "Noto Serif SC Punct"; src: url("fonts/noto-serif-sc/files/noto-serif-sc-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+2014, U+2018-2019, U+201C-201D, U+2026; }
+@font-face { font-family: "Noto Serif SC Punct"; src: url("fonts/noto-serif-sc/files/noto-serif-sc-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+2014, U+2018-2019, U+201C-201D, U+2026; }
 
 :root {
   color-scheme: light;
@@ -15,7 +22,10 @@
   --wood-deep: #a97b4c;
   --guide: #efe2c4;
   --cab-h: 780px;
-  --latin: "Kevin Serif", "LXGW WenKai", serif;
+  /* --latin for words that are Latin whatever the page's language (repo names, counts, GitHub's descriptions);
+     --text for everything else, the page's own language */
+  --latin: "Newsreader", Georgia, "Noto Serif SC", "Songti SC", "STSong", serif;
+  --text: var(--latin);
   --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .36 0 0 0 0 .28 0 0 0 .3 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 * { box-sizing: border-box; }
@@ -24,8 +34,9 @@ body {
   margin: 0; min-height: 100vh;
   background: var(--paper) var(--noise);
   color: var(--ink);
-  font: 16px/1.6 "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif;
+  font: 16px/1.6 var(--text);
 }
+:root:lang(zh) { --text: "Noto Serif SC Punct", var(--latin); }
 a { color: inherit; }
 ::selection { background: rgba(243, 213, 92, .6); }
 :focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
@@ -211,7 +222,7 @@ h3.rel { margin: 28px 6px 10px; font-size: 14px; font-weight: 400; color: var(--
 .panel > .cards { margin: 0 6px 12px; }
 
 /* ---------- English ---------- */
-html:lang(en) h1 { font-family: var(--latin); font-weight: 400; letter-spacing: .04em; }
+html:lang(en) h1 { font-weight: 400; letter-spacing: .04em; }
 html:lang(en) .alt { font-family: inherit; letter-spacing: .3em; }
 html:lang(en) .new { font-size: 11px; letter-spacing: .04em; }
 html:lang(en) .chip { max-width: 36%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

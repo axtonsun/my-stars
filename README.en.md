@@ -35,7 +35,7 @@ New stars go into the Unfiled basket first, with GitHub's own description and to
 | `site/draw.js` | Draws the hand-drawn cabinet as SVG |
 | `site/app.js` | Interaction and state (kept in the URL) |
 | `site/i18n.js` | Interface text in Chinese and English |
-| `site/fonts/` | Self-hosted fonts: LXGW WenKai (OFL) and Kevin Serif (MIT) |
+| `site/fonts/` | Self-hosted fonts: Noto Serif SC and Newsreader (both OFL) |
 | `DESIGN.md` | How the site looks and behaves: colours, type, motion, keyboard and screen readers |
 | `data/stars.json` | The synced star list; don't edit it by hand |
 | `data/classification.json` | Categories, tags and summaries in both languages; edited by hand |

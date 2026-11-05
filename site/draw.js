@@ -41,7 +41,8 @@ window.Draw = (() => {
     return `<path d="${d}" fill="${color}" opacity="${o.op ?? 0.78}" filter="url(#grain)"/>` + (strokes ? `<path d="${d}" fill="url(#h${color.slice(1)}${o.angle === 'b' ? 'b' : ''})" opacity="${o.sop ?? 0.85}" filter="url(#edge)"/>` : '');
   }
   const fillRect = (x, y, w, h, color, o) => pencil(shape(rectPts(x, y, w, h)), color, o);
-  const text = (x, y, s, o = {}) => `<text x="${f(x)}" y="${f(y)}" font-family="${o.latin ? 'Kevin Serif, LXGW WenKai, serif' : 'LXGW WenKai, serif'}" font-size="${o.size ?? 14}" font-weight="${o.bold ? 700 : 400}" fill="${o.color ?? INK}" text-anchor="${o.anchor ?? 'start'}" letter-spacing="${o.ls ?? 0}">${esc(s)}</text>`;
+  // words take the page's fonts (style.css), so they are never put through art()
+  const text = (x, y, s, o = {}) => `<text x="${f(x)}" y="${f(y)}" font-size="${o.size ?? 14}" font-weight="${o.bold ? 700 : 400}" fill="${o.color ?? INK}" text-anchor="${o.anchor ?? 'start'}" letter-spacing="${o.ls ?? 0}">${esc(s)}</text>`;
   const cw = (s, px) => [...s].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? px : px * 0.56), 0);
   // a drawer name on a plate `w` wide: one line if it fits, else two lines split at the most even space
   // (never starting a line with "&"; the second line keeps clear of the count in the corner), shrunk if still too long
@@ -124,7 +125,7 @@ window.Draw = (() => {
     const name = lines.length > 1
       ? text(lx + lw / 2, ly + lh / 2 - 1, lines[0], { size, anchor: 'middle' }) + text(lx + lw / 2, ly + lh / 2 + size + 1, lines[1], { size, anchor: 'middle' })
       : text(lx + lw / 2, ly + lh / 2 + lp * 0.4, lines[0], { size, anchor: 'middle' });
-    return name + text(lx + lw - 3, ly + lh - 3, String(d.count), { size: 10.5, anchor: 'end', color: RED, latin: true });
+    return name + text(lx + lw - 3, ly + lh - 3, String(d.count), { size: 10.5, anchor: 'end', color: RED });
   }
   const front = (x, y, dw, dh, d, lp) => frontArt(x, y, dw, dh, d) + frontText(x, y, dw, dh, d, lp);
   // the same, with the art as a picture once there is one (see bake())
