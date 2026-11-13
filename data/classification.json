@@ -176,7 +176,10 @@
   "哈希表": "Hash Tables",
   "数据库": "Databases",
   "分布式系统": "Distributed Systems",
-  "按键显示": "Keystroke Display"
+  "按键显示": "Keystroke Display",
+  "组件库": "Component Libraries",
+  "无障碍": "Accessibility",
+  "模拟器": "Emulators"
  },
  "repos": {
   "stackedlol/ascii-sharks": {"cat": "design", "tags": ["字符画", "动画"], "summary": "在网页 Canvas 上用字符画出会游动的鱼和鲨鱼，零依赖", "summary_en": "Fish and sharks drawn in ASCII characters that swim across a web canvas, with zero dependencies"},
@@ -188,7 +191,6 @@
   "Vonng/ddia": {"cat": "graph", "tags": ["书籍", "数据库", "分布式系统"], "summary": "《设计数据密集型应用》（DDIA）第一版、第二版中文翻译", "summary_en": "A Chinese translation of Designing Data-Intensive Applications (DDIA), first and second editions"},
   "keycastr/keycastr": {"cat": "tools", "tags": ["macOS", "按键显示"], "summary": "在屏幕上实时显示按键和鼠标点击的 Mac 工具，适合录屏和演示", "summary_en": "Shows your keystrokes and mouse clicks on screen as you type, for screencasts and presentations on the Mac"},
   "ai-job-search-dev/ai-job-search": {"cat": "career", "tags": ["Claude Code", "简历", "求职信"], "summary": "基于 Claude Code 的本地 AI 求职框架：评估岗位、定制简历、写求职信、准备面试", "summary_en": "A local AI job-search framework built on Claude Code: evaluate postings, tailor CVs, write cover letters, prep for interviews"},
-  "ythx-101/live-panel-skill": {"cat": "design", "tags": ["Agent Skills", "架构图", "动画"], "summary": "用一个 JSON 生成会动的架构图：终端风格常驻动画或浅色信息图", "summary_en": "Animated architecture diagrams from one JSON file: an always-running terminal-style panel or a light infographic"},
   "egoist/mygo": {"cat": "coding", "tags": ["桌面应用"], "summary": "用 Go 开发桌面应用，可选原生 UI 或 Web 前端", "summary_en": "Build desktop apps in Go, with a native UI or a web frontend"},
   "chengyi-ai/native-subtitle-quote-image": {"cat": "content", "tags": ["Agent Skills", "视频", "字幕"], "summary": "保留视频内嵌字幕精确取帧，拼成 3:4 社交媒体长图", "summary_en": "Grabs exact video frames with their burned-in subtitles and stitches them into a 3:4 social-media image"},
   "WenyuChiou/awesome-agentic-ai-zh": {"cat": "llm", "tags": ["Awesome 列表", "学习路线", "Agent"], "summary": "Agentic AI 中文学习路线：从 LLM 基础到多智能体，240+ 精选资源和实例", "summary_en": "A Chinese / English learning roadmap for agentic AI, from LLM basics to multi-agent systems, with 240+ curated resources and examples"},
@@ -336,6 +338,14 @@
   "massgravel/Microsoft-Activation-Scripts": {"cat": "tools", "tags": ["Windows", "Office"], "summary": "开源的 Windows / Office 激活脚本", "summary_en": "Open-source activation scripts for Windows and Office"},
   "TheAlgorithms/C-Plus-Plus": {"cat": "coding", "tags": ["算法"], "summary": "各类算法的 C++ 实现合集（教学用）", "summary_en": "A collection of algorithms implemented in C++ for teaching"},
   "TonyCrane/PracticalSkillsTutorial": {"cat": "coding", "tags": ["课程", "工具"], "summary": "浙大「实用技能拾遗」课程资料（Shell、Git、Markdown、LaTeX 等）", "summary_en": "Course materials for Zhejiang University's \"Missing Practical Skills\" (Shell, Git, Markdown, LaTeX and more)"},
-  "stdrc/modern-cmake-by-example": {"cat": "coding", "tags": ["CMake"], "summary": "IPADS 实验室新人培训：通过例子学现代 CMake", "summary_en": "IPADS lab onboarding: learn modern CMake by example"}
+  "stdrc/modern-cmake-by-example": {"cat": "coding", "tags": ["CMake"], "summary": "IPADS 实验室新人培训：通过例子学现代 CMake", "summary_en": "IPADS lab onboarding: learn modern CMake by example"},
+  "poco-ai/Agentero": {"cat": "research-ai", "tags": ["桌面应用", "文献", "MCP"], "summary": "为人与 Agent 协作的一站式科研工作台：带引用的 PDF 问答、文献库和写作，资料沉淀在本地", "summary_en": "A unified research workspace for humans and agents: PDF Q&A with citations, a vault and writing, all kept locally"},
+  "FeijiangHan/PaperForge": {"cat": "research-ai", "tags": ["Agent Skills", "论文精读", "提示词"], "summary": "主动式读论文 Skill：还原作者思路、讲透方法原理、拷问假设，并生成后续研究 idea", "summary_en": "An active paper-reading skill: reconstructs the authors' reasoning, explains methods mechanistically, stress-tests assumptions and generates follow-up research ideas"},
+  "dwzhu-pku/PaperBanana": {"cat": "research-ai", "tags": ["科研绘图", "多智能体"], "summary": "自动给论文画学术插图的多智能体框架，面向 AI 科学家", "summary_en": "A multi-agent framework that draws academic illustrations for papers automatically, for AI scientists"},
+  "adobe/react-spectrum": {"cat": "design", "tags": ["React", "组件库", "无障碍"], "summary": "Adobe 的 React 组件库与工具集，做自适应、无障碍、稳健的界面", "summary_en": "Adobe's React component libraries and tools for adaptive, accessible and robust interfaces"},
+  "Warren2060/ChillDIN-ChillDINGothic": {"cat": "design", "tags": ["字体"], "summary": "ChillDIN 与寒蝉德黑体：基于 D-DIN 修缮的 DIN 风格字体，中文搭配由寒蝉端黑体（思源黑体）调整而来", "summary_en": "ChillDIN and ChillDIN Gothic: a DIN-style font refined from D-DIN, with Chinese adapted from ChillDuanSans (Source Han Sans)"},
+  "lemomo-ai/lemo-opuscar": {"cat": "content", "tags": ["Agent Skills", "AI 视频", "动画"], "summary": "99 种影片风格交给编程 Agent：挑一个风格、带上故事，Agent 用代码把整支片做出来", "summary_en": "99 film styles for your coding agent: pick one, bring your story, and the agent makes the whole film in code"},
+  "felixrieseberg/macintosh.js": {"cat": "tools", "tags": ["桌面应用", "模拟器"], "summary": "装在 Electron 应用里的虚拟苹果 Macintosh，运行 System 8", "summary_en": "A virtual Apple Macintosh running System 8, packed into an Electron app"},
+  "felixrieseberg/windows95": {"cat": "tools", "tags": ["桌面应用", "模拟器"], "summary": "做成一个应用的 Windows 95，可在 macOS、Linux 和 Windows 上运行", "summary_en": "Windows 95 in an app, running on macOS, Linux and Windows"}
  }
 }
